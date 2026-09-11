@@ -112,6 +112,12 @@ type VectorTuple =
     number,
   ];
 
+const MODAL_REVEAL_STATE_EVENT =
+  "adventure:modal-reveal-state";
+
+const MODAL_REVEAL_FORWARD_ANGLE =
+  Math.PI / 10;
+
 const MANUAL_HOTSPOT_EVENT =
   "adventure:manual-hotspot";
 
@@ -127,16 +133,9 @@ const SELECT_SECTION_EVENT =
 const INTRO_EVENT =
   "adventure:intro";
 
-/*
- * A normal click should not stop automatic rotation.
- */
 const MANUAL_DRAG_THRESHOLD =
   5;
 
-/*
- * Mouse-wheel and trackpad scrolling become horizontal
- * rotation instead of zoom.
- */
 const WHEEL_ROTATION_SENSITIVITY =
   0.00125;
 
@@ -186,6 +185,18 @@ export default function AdventureSceneContent({
       gsap.core.Timeline | null
     >(null);
 
+  /*
+   * true while a reversible modal
+   * remains mounted above the viewport.
+   *
+   * This is used for the special
+   * forward-only wheel behavior.
+   */
+  const [
+    modalRevealReleased,
+    setModalRevealReleased,
+  ] = useState(false);
+
   const [
     moving,
     setMoving,
@@ -204,31 +215,17 @@ export default function AdventureSceneContent({
     setIdleRotationEnabled,
   ] = useState(false);
 
-  /*
-   * This becomes false after manual rotation.
-   *
-   * A hotspot → Home interaction sets it back to true.
-   */
   const automaticRotationWantedRef =
     useRef(false);
 
   const visitorInteractedRef =
     useRef(false);
 
-  /*
-   * Preserve the side belonging to the selected hotspot.
-   *
-   * Home restores the normal automatic route at this
-   * horizontal angle.
-   */
   const returnOrbitAngleRef =
     useRef<number | null>(
       null,
     );
 
-  /*
-   * Used to distinguish a click from an actual drag.
-   */
   const pointerDownRef =
     useRef(false);
 
@@ -260,9 +257,15 @@ export default function AdventureSceneContent({
       : HOME_CAMERA_DESKTOP;
 
   /*
-   * Build a camera position on the normal automatic route
-   * at the requested horizontal angle.
+   * HeroScene now sends the effective
+   * pause state.
+   *
+   * It becomes false when a reversible
+   * modal is completely above the screen.
    */
+  const sceneControlsAllowed =
+    !interactionPaused;
+
   const getAutoOrbitCameraAtAngle =
     useCallback(
       (
@@ -304,12 +307,11 @@ export default function AdventureSceneContent({
               horizontalRadius,
         ] as const;
       },
-      [compact],
+      [
+        compact,
+      ],
     );
 
-  /*
-   * Manual dragging or scrolling stops automatic rotation.
-   */
   const stopIdleRotation =
     useCallback(() => {
       automaticRotationWantedRef.current =
@@ -324,8 +326,15 @@ export default function AdventureSceneContent({
     }, []);
 
   /*
-   * Detect real canvas dragging and convert wheel input
-   * into horizontal rotation.
+   * Normal canvas interaction.
+   *
+   * While a modal is fully released,
+   * down-scroll continues the same
+   * forward rotation direction.
+   *
+   * Up-scroll belongs to the modal
+   * restoration and must never rotate
+   * the building backwards.
    */
   useEffect(() => {
     const canvas =
@@ -336,7 +345,7 @@ export default function AdventureSceneContent({
     ) => {
       if (
         moving ||
-        interactionPaused ||
+        !sceneControlsAllowed ||
         focusedSectionId !==
           null
       ) {
@@ -418,7 +427,7 @@ export default function AdventureSceneContent({
     ) => {
       if (
         moving ||
-        interactionPaused ||
+        !sceneControlsAllowed ||
         focusedSectionId !==
           null
       ) {
@@ -432,17 +441,6 @@ export default function AdventureSceneContent({
         return;
       }
 
-      /*
-       * Prevent page scrolling and OrbitControls zoom.
-       */
-      event.preventDefault();
-
-      /*
-       * Scrolling is manual rotation, so automatic
-       * rotation stops.
-       */
-      stopIdleRotation();
-
       const deltaMultiplier =
         event.deltaMode === 1
           ? 16
@@ -450,10 +448,6 @@ export default function AdventureSceneContent({
             ? window.innerHeight
             : 1;
 
-      /*
-       * Vertical mouse wheels use deltaY. Horizontal
-       * trackpad movement can use deltaX.
-       */
       const dominantDelta =
         Math.abs(
           event.deltaY,
@@ -468,6 +462,53 @@ export default function AdventureSceneContent({
         dominantDelta *
         deltaMultiplier;
 
+      /*
+       * Up-scroll must be reserved for
+       * restoring the hidden modal.
+       *
+       * useModalHomeReveal normally
+       * catches this first, but this is
+       * an extra safety guard.
+       */
+      if (
+        modalRevealReleased &&
+        normalizedDelta < 0
+      ) {
+        event.preventDefault();
+
+        return;
+      }
+
+      event.preventDefault();
+
+      /*
+       * Normal homepage:
+       * wheel interaction stops
+       * automatic rotation.
+       *
+       * Reversible-modal homepage:
+       * keep the automatic motion alive.
+       */
+      if (
+        !modalRevealReleased
+      ) {
+        stopIdleRotation();
+      }
+
+      /*
+       * Positive OrbitControls autoRotate
+       * moves by reducing azimuth.
+       *
+       * Force downward wheel input into
+       * that same direction.
+       */
+      const directionalDelta =
+        modalRevealReleased
+          ? -Math.abs(
+              normalizedDelta,
+            )
+          : normalizedDelta;
+
       const rotationAmount =
         Math.max(
           -MAX_WHEEL_ROTATION_STEP,
@@ -475,15 +516,11 @@ export default function AdventureSceneContent({
           Math.min(
             MAX_WHEEL_ROTATION_STEP,
 
-            normalizedDelta *
+            directionalDelta *
               WHEEL_ROTATION_SENSITIVITY,
           ),
         );
 
-      /*
-       * Rotate around the existing target without changing
-       * camera distance, height, or vertical tilt.
-       */
       const cameraOffset =
         camera.position
           .clone()
@@ -577,15 +614,12 @@ export default function AdventureSceneContent({
     camera,
     focusedSectionId,
     gl,
-    interactionPaused,
+    modalRevealReleased,
     moving,
+    sceneControlsAllowed,
     stopIdleRotation,
   ]);
 
-  /*
-   * Notify the preloader after OrbitControls exists and
-   * the scene has rendered two animation frames.
-   */
   const handleControlsReady =
     useCallback(
       (
@@ -701,7 +735,9 @@ export default function AdventureSceneContent({
     }> = [];
 
     scene.traverse(
-      (object) => {
+      (
+        object,
+      ) => {
         const possibleLight =
           object as typeof object & {
             isLight?: boolean;
@@ -734,7 +770,9 @@ export default function AdventureSceneContent({
                 .distanceTo(
                   event.point,
                 )
-                .toFixed(3),
+                .toFixed(
+                  3,
+                ),
             ),
 
           position:
@@ -803,7 +841,9 @@ export default function AdventureSceneContent({
 
         controls.update();
       },
-      [camera],
+      [
+        camera,
+      ],
     );
 
   const stopCameraTweens =
@@ -828,7 +868,9 @@ export default function AdventureSceneContent({
 
         controls.update();
       }
-    }, [camera]);
+    }, [
+      camera,
+    ]);
 
   useEffect(() => {
     const perspectiveCamera =
@@ -868,7 +910,9 @@ export default function AdventureSceneContent({
 
         stopCameraTweens();
 
-        setMoving(true);
+        setMoving(
+          true,
+        );
 
         const timeline =
           gsap.timeline({
@@ -885,7 +929,9 @@ export default function AdventureSceneContent({
               cameraTimelineRef.current =
                 null;
 
-              setMoving(false);
+              setMoving(
+                false,
+              );
 
               afterMove?.();
             },
@@ -894,7 +940,9 @@ export default function AdventureSceneContent({
               cameraTimelineRef.current =
                 null;
 
-              setMoving(false);
+              setMoving(
+                false,
+              );
             },
           });
 
@@ -947,6 +995,351 @@ export default function AdventureSceneContent({
         stopCameraTweens,
       ],
     );
+
+  /*
+   * Enter the normal homepage orbit
+   * after a modal has fully lifted.
+   *
+   * IMPORTANT:
+   *
+   * This does NOT clear activeId.
+   *
+   * AutomaticHotspotController is
+   * already running again by this point.
+   * Clearing activeId here caused the
+   * empty purple popup-card shell.
+   */
+  const enterModalRevealHome =
+    useCallback(() => {
+      const controls =
+        controlsRef.current;
+
+      if (!controls) {
+        return;
+      }
+
+      stopCameraTweens();
+
+      automaticRotationWantedRef.current =
+        false;
+
+      setIdleRotationEnabled(
+        false,
+      );
+
+      const orbitTarget =
+        new Vector3(
+          INTRO_STREET_TARGET[0],
+          INTRO_STREET_TARGET[1],
+          INTRO_STREET_TARGET[2],
+        );
+
+      const currentOffset =
+        camera.position
+          .clone()
+          .sub(
+            orbitTarget,
+          );
+
+      const baseCamera =
+        compact
+          ? INTRO_STREET_CAMERA_MOBILE
+          : INTRO_STREET_CAMERA_DESKTOP;
+
+      const startingAngle =
+        Math.atan2(
+          currentOffset.x,
+          currentOffset.z,
+        );
+
+      const startingRadius =
+        Math.max(
+          0.001,
+
+          Math.hypot(
+            currentOffset.x,
+            currentOffset.z,
+          ),
+        );
+
+      const finalRadius =
+        Math.hypot(
+          baseCamera[0] -
+            orbitTarget.x,
+
+          baseCamera[2] -
+            orbitTarget.z,
+        );
+
+      /*
+       * autoRotateSpeed > 0 reduces
+       * OrbitControls' azimuth angle.
+       *
+       * Subtracting keeps this transition
+       * traveling in that same direction.
+       */
+      const finalAngle =
+        startingAngle -
+        MODAL_REVEAL_FORWARD_ANGLE;
+
+      const orbitState = {
+        angle:
+          startingAngle,
+
+        radius:
+          startingRadius,
+
+        height:
+          camera.position.y,
+
+        targetX:
+          controls.target.x,
+
+        targetY:
+          controls.target.y,
+
+        targetZ:
+          controls.target.z,
+      };
+
+      pointerDownRef.current =
+        false;
+
+      activePointerIdRef.current =
+        null;
+
+      setMoving(
+        true,
+      );
+
+      window.dispatchEvent(
+        new CustomEvent(
+          FOCUS_STATE_EVENT,
+          {
+            detail: {
+              focused:
+                focusedSectionId !==
+                null,
+
+              returning: true,
+            },
+          },
+        ),
+      );
+
+      const applyOrbit =
+        () => {
+          camera.position.set(
+            orbitTarget.x +
+              Math.sin(
+                orbitState.angle,
+              ) *
+                orbitState.radius,
+
+            orbitState.height,
+
+            orbitTarget.z +
+              Math.cos(
+                orbitState.angle,
+              ) *
+                orbitState.radius,
+          );
+
+          controls.target.set(
+            orbitState.targetX,
+            orbitState.targetY,
+            orbitState.targetZ,
+          );
+
+          controls.update();
+        };
+
+      const timeline =
+        gsap.timeline({
+          onUpdate:
+            applyOrbit,
+
+          onComplete: () => {
+            cameraTimelineRef.current =
+              null;
+
+            setMoving(
+              false,
+            );
+
+            setFocusedSectionId(
+              null,
+            );
+
+            /*
+             * DO NOT:
+             *
+             * onActiveChange(null)
+             *
+             * Keeping activeId intact prevents
+             * AutoCardStack from becoming an
+             * empty purple shell immediately
+             * after the modal reveal.
+             *
+             * AutomaticHotspotController will
+             * update activeId naturally when
+             * another hotspot becomes active.
+             */
+
+            automaticRotationWantedRef.current =
+              true;
+
+            visitorInteractedRef.current =
+              false;
+
+            setIdleRotationEnabled(
+              true,
+            );
+
+            returnOrbitAngleRef.current =
+              null;
+
+            pointerDownRef.current =
+              false;
+
+            activePointerIdRef.current =
+              null;
+
+            window.dispatchEvent(
+              new CustomEvent(
+                FOCUS_STATE_EVENT,
+                {
+                  detail: {
+                    focused:
+                      false,
+
+                    returning:
+                      false,
+                  },
+                },
+              ),
+            );
+          },
+
+          onInterrupt: () => {
+            cameraTimelineRef.current =
+              null;
+
+            setMoving(
+              false,
+            );
+          },
+        });
+
+      cameraTimelineRef.current =
+        timeline;
+
+      timeline.to(
+        orbitState,
+        {
+          angle:
+            finalAngle,
+
+          radius:
+            finalRadius,
+
+          height:
+            baseCamera[1],
+
+          targetX:
+            INTRO_STREET_TARGET[0],
+
+          targetY:
+            INTRO_STREET_TARGET[1],
+
+          targetZ:
+            INTRO_STREET_TARGET[2],
+
+          duration:
+            0.9,
+
+          ease:
+            "power2.inOut",
+        },
+        0,
+      );
+    }, [
+      camera,
+      compact,
+      focusedSectionId,
+      stopCameraTweens,
+    ]);
+
+  /*
+   * Reversible modal state.
+   */
+  useEffect(() => {
+    const handleModalRevealState = (
+      event: Event,
+    ) => {
+      const customEvent =
+        event as CustomEvent<{
+          released?: boolean;
+          progress?: number;
+        }>;
+
+      const released =
+        Boolean(
+          customEvent.detail
+            ?.released,
+        );
+
+      setModalRevealReleased(
+        released,
+      );
+
+      if (released) {
+        /*
+         * Modal is completely above
+         * the viewport.
+         *
+         * Join the normal home orbit.
+         */
+        enterModalRevealHome();
+
+        return;
+      }
+
+      /*
+       * User is scrolling upward and
+       * restoring the previous modal.
+       */
+      stopCameraTweens();
+
+      automaticRotationWantedRef.current =
+        false;
+
+      setIdleRotationEnabled(
+        false,
+      );
+
+      pointerDownRef.current =
+        false;
+
+      activePointerIdRef.current =
+        null;
+    };
+
+    window.addEventListener(
+      MODAL_REVEAL_STATE_EVENT,
+      handleModalRevealState,
+    );
+
+    return () => {
+      window.removeEventListener(
+        MODAL_REVEAL_STATE_EVENT,
+        handleModalRevealState,
+      );
+    };
+  }, [
+    enterModalRevealHome,
+    stopCameraTweens,
+  ]);
 
   const moveToAboutDoor =
     useCallback(
@@ -1017,12 +1410,6 @@ export default function AdventureSceneContent({
       ],
     );
 
-  /*
-   * Select a numbered hotspot.
-   *
-   * The return angle comes from the selected hotspot,
-   * rather than a randomly dragged camera position.
-   */
   const selectSection =
     useCallback(
       (
@@ -1031,7 +1418,7 @@ export default function AdventureSceneContent({
       ) => {
         if (
           moving ||
-          interactionPaused ||
+          !sceneControlsAllowed ||
           focusedSectionId !==
             null
         ) {
@@ -1073,10 +1460,6 @@ export default function AdventureSceneContent({
               INTRO_STREET_TARGET[2],
           );
 
-        /*
-         * A hotspot click does not count as manual camera
-         * dragging.
-         */
         setFocusedSectionId(
           section.id,
         );
@@ -1150,30 +1533,24 @@ export default function AdventureSceneContent({
       [
         compact,
         focusedSectionId,
-        interactionPaused,
         moveCamera,
         moveToAboutDoor,
         moveToCreditsRooftop,
         moveToProjectsStorefront,
         moving,
         onActiveChange,
+        sceneControlsAllowed,
       ],
     );
 
   /*
-   * Return to the normal automatic route on the side of
-   * the selected hotspot.
+   * Normal explicit Home-button return.
+   *
+   * Unlike the modal scroll reveal,
+   * this DOES intentionally clear activeId.
    */
   const returnToHome =
     useCallback(() => {
-      if (
-        moving ||
-        focusedSectionId ===
-          null
-      ) {
-        return;
-      }
-
       const baseCamera =
         compact
           ? INTRO_STREET_CAMERA_MOBILE
@@ -1188,9 +1565,21 @@ export default function AdventureSceneContent({
             INTRO_STREET_TARGET[2],
         );
 
+      const currentAngle =
+        Math.atan2(
+          camera.position.x -
+            INTRO_STREET_TARGET[0],
+
+          camera.position.z -
+            INTRO_STREET_TARGET[2],
+        );
+
       const returnAngle =
-        returnOrbitAngleRef.current ??
-        fallbackAngle;
+        focusedSectionId !==
+        null
+          ? returnOrbitAngleRef.current ??
+            fallbackAngle
+          : currentAngle;
 
       const returnCamera =
         getAutoOrbitCameraAtAngle(
@@ -1202,7 +1591,10 @@ export default function AdventureSceneContent({
           FOCUS_STATE_EVENT,
           {
             detail: {
-              focused: true,
+              focused:
+                focusedSectionId !==
+                null,
+
               returning: true,
             },
           },
@@ -1212,16 +1604,19 @@ export default function AdventureSceneContent({
       moveCamera(
         returnCamera,
         INTRO_STREET_TARGET,
-        1.15,
+        focusedSectionId !==
+        null
+          ? 1.15
+          : 0.75,
         () => {
           setFocusedSectionId(
             null,
           );
 
-          /*
-           * Home after a numbered hotspot always restarts
-           * automatic rotation.
-           */
+          onActiveChange(
+            null,
+          );
+
           automaticRotationWantedRef.current =
             true;
 
@@ -1246,8 +1641,11 @@ export default function AdventureSceneContent({
               FOCUS_STATE_EVENT,
               {
                 detail: {
-                  focused: false,
-                  returning: false,
+                  focused:
+                    false,
+
+                  returning:
+                    false,
                 },
               },
             ),
@@ -1255,11 +1653,12 @@ export default function AdventureSceneContent({
         },
       );
     }, [
+      camera,
       compact,
       focusedSectionId,
       getAutoOrbitCameraAtAngle,
       moveCamera,
-      moving,
+      onActiveChange,
     ]);
 
   useEffect(() => {
@@ -1279,12 +1678,10 @@ export default function AdventureSceneContent({
         handleReturnHome,
       );
     };
-  }, [returnToHome]);
+  }, [
+    returnToHome,
+  ]);
 
-  /*
-   * Preserve support for external section-selection
-   * events.
-   */
   useEffect(() => {
     const handleSelection = (
       event: Event,
@@ -1299,7 +1696,9 @@ export default function AdventureSceneContent({
 
       const section =
         SECTIONS.find(
-          (item) =>
+          (
+            item,
+          ) =>
             item.id ===
             requestedId,
         );
@@ -1322,11 +1721,10 @@ export default function AdventureSceneContent({
         handleSelection,
       );
     };
-  }, [selectSection]);
+  }, [
+    selectSection,
+  ]);
 
-  /*
-   * Opening camera animation.
-   */
   useEffect(() => {
     const handleIntro = () => {
       const controls =
@@ -1348,6 +1746,10 @@ export default function AdventureSceneContent({
 
       stopCameraTweens();
 
+      setModalRevealReleased(
+        false,
+      );
+
       visitorInteractedRef.current =
         false;
 
@@ -1363,9 +1765,15 @@ export default function AdventureSceneContent({
       activePointerIdRef.current =
         null;
 
-      setMoving(true);
+      setMoving(
+        true,
+      );
 
       setFocusedSectionId(
+        null,
+      );
+
+      onActiveChange(
         null,
       );
 
@@ -1496,12 +1904,10 @@ export default function AdventureSceneContent({
             cameraTimelineRef.current =
               null;
 
-            setMoving(false);
+            setMoving(
+              false,
+            );
 
-            /*
-             * Always begin automatic rotation when the
-             * intro finishes.
-             */
             automaticRotationWantedRef.current =
               true;
 
@@ -1517,7 +1923,9 @@ export default function AdventureSceneContent({
             cameraTimelineRef.current =
               null;
 
-            setMoving(false);
+            setMoving(
+              false,
+            );
           },
         });
 
@@ -1593,6 +2001,7 @@ export default function AdventureSceneContent({
     camera,
     compact,
     lockCamera,
+    onActiveChange,
     stopCameraTweens,
   ]);
 
@@ -1615,7 +2024,9 @@ export default function AdventureSceneContent({
       />
 
       <ambientLight
-        intensity={0.12}
+        intensity={
+          0.12
+        }
       />
 
       <spotLight
@@ -1624,12 +2035,22 @@ export default function AdventureSceneContent({
           17,
           11,
         ]}
-        angle={0.52}
-        penumbra={0.86}
-        intensity={4.15}
+        angle={
+          0.52
+        }
+        penumbra={
+          0.86
+        }
+        intensity={
+          4.15
+        }
         color="#ffd0b6"
-        distance={48}
-        decay={1.45}
+        distance={
+          48
+        }
+        decay={
+          1.45
+        }
         castShadow
         shadow-mapSize-width={
           1024
@@ -1645,12 +2066,22 @@ export default function AdventureSceneContent({
           14,
           -10,
         ]}
-        angle={0.68}
-        penumbra={0.92}
-        intensity={2.75}
+        angle={
+          0.68
+        }
+        penumbra={
+          0.92
+        }
+        intensity={
+          2.75
+        }
         color="#727cff"
-        distance={52}
-        decay={1.55}
+        distance={
+          52
+        }
+        decay={
+          1.55
+        }
       />
 
       <pointLight
@@ -1659,10 +2090,16 @@ export default function AdventureSceneContent({
           8.2,
           1.7,
         ]}
-        intensity={1.7}
+        intensity={
+          1.7
+        }
         color="#ff7665"
-        distance={20}
-        decay={1.5}
+        distance={
+          20
+        }
+        decay={
+          1.5
+        }
       />
 
       <ConcreteRooftopGround />
@@ -1672,14 +2109,16 @@ export default function AdventureSceneContent({
       <ExistingStreetSignOverlay />
 
       <SakuraAtmosphere />
-      
+
       <FloatingHeart
         position={[
           0,
           13.25,
           0,
         ]}
-        scale={0.68}
+        scale={
+          0.68
+        }
       />
 
       <group
@@ -1700,7 +2139,9 @@ export default function AdventureSceneContent({
             position={
               debugClickPoint
             }
-            renderOrder={999}
+            renderOrder={
+              999
+            }
           >
             <sphereGeometry
               args={[
@@ -1712,9 +2153,15 @@ export default function AdventureSceneContent({
 
             <meshBasicMaterial
               color="#00ffff"
-              toneMapped={false}
-              depthTest={false}
-              depthWrite={false}
+              toneMapped={
+                false
+              }
+              depthTest={
+                false
+              }
+              depthWrite={
+                false
+              }
             />
           </mesh>
         )}
@@ -1729,9 +2176,15 @@ export default function AdventureSceneContent({
           12,
           4,
         ]}
-        intensity={5}
-        distance={28}
-        decay={1.6}
+        intensity={
+          5
+        }
+        distance={
+          28
+        }
+        decay={
+          1.6
+        }
         color="#ffc87a"
       />
 
@@ -1741,9 +2194,15 @@ export default function AdventureSceneContent({
           7,
           5,
         ]}
-        intensity={6}
-        distance={24}
-        decay={1.65}
+        intensity={
+          6
+        }
+        distance={
+          24
+        }
+        decay={
+          1.65
+        }
         color="#ffbe72"
       />
 
@@ -1753,9 +2212,15 @@ export default function AdventureSceneContent({
           3.5,
           6,
         ]}
-        intensity={7}
-        distance={22}
-        decay={1.6}
+        intensity={
+          7
+        }
+        distance={
+          22
+        }
+        decay={
+          1.6
+        }
         color="#ffba68"
       />
 
@@ -1765,9 +2230,15 @@ export default function AdventureSceneContent({
           0.8,
           8,
         ]}
-        intensity={7}
-        distance={20}
-        decay={1.55}
+        intensity={
+          7
+        }
+        distance={
+          20
+        }
+        decay={
+          1.55
+        }
         color="#ffb660"
       />
 
@@ -1777,9 +2248,15 @@ export default function AdventureSceneContent({
           0.5,
           3,
         ]}
-        intensity={3.4}
-        distance={13}
-        decay={1.85}
+        intensity={
+          3.4
+        }
+        distance={
+          13
+        }
+        decay={
+          1.85
+        }
         color="#ffc070"
       />
 
@@ -1789,9 +2266,15 @@ export default function AdventureSceneContent({
           2.5,
           1,
         ]}
-        intensity={2.8}
-        distance={12}
-        decay={1.9}
+        intensity={
+          2.8
+        }
+        distance={
+          12
+        }
+        decay={
+          1.9
+        }
         color="#ffbe74"
       />
 
@@ -1801,22 +2284,34 @@ export default function AdventureSceneContent({
           0.1,
           6,
         ]}
-        intensity={4.2}
-        distance={15}
-        decay={1.8}
+        intensity={
+          4.2
+        }
+        distance={
+          15
+        }
+        decay={
+          1.8
+        }
         color="#ffb258"
       />
 
       <BackAlleyPinkGlow />
 
       {SECTIONS.map(
-        (section) => (
+        (
+          section,
+        ) => (
           <NumberHotspot
-            key={section.id}
-            section={section}
+            key={
+              section.id
+            }
+            section={
+              section
+            }
             disabled={
               moving ||
-              interactionPaused ||
+              !sceneControlsAllowed ||
               focusedSectionId !==
                 null
             }
@@ -1826,16 +2321,21 @@ export default function AdventureSceneContent({
             }
             showCard={
               idleRotationEnabled &&
-              activeId === section.id &&
+              activeId ===
+                section.id &&
               !moving &&
-              !interactionPaused &&
-              focusedSectionId === null
+              sceneControlsAllowed &&
+              focusedSectionId ===
+                null
             }
             onSelect={
               selectSection
             }
             onClose={() => {
-              // Cards are controlled by camera traversal.
+              /*
+               * Cards are controlled
+               * by camera traversal.
+               */
             }}
             onProjectSelect={
               onProjectSelect
@@ -1848,17 +2348,27 @@ export default function AdventureSceneContent({
       )}
 
       <EffectComposer
-        multisampling={0}
+        multisampling={
+          0
+        }
         enableNormalPass
       >
         <SSAO
           blendFunction={
             BlendFunction.MULTIPLY
           }
-          samples={12}
-          rings={4}
-          radius={0.075}
-          intensity={1.2}
+          samples={
+            12
+          }
+          rings={
+            4
+          }
+          radius={
+            0.075
+          }
+          intensity={
+            1.2
+          }
           luminanceInfluence={
             0.52
           }
@@ -1869,7 +2379,9 @@ export default function AdventureSceneContent({
 
         <Bloom
           mipmapBlur
-          intensity={0.5}
+          intensity={
+            0.5
+          }
           luminanceThreshold={
             0.68
           }
@@ -1879,9 +2391,15 @@ export default function AdventureSceneContent({
         />
 
         <Vignette
-          eskil={false}
-          offset={0.18}
-          darkness={0.72}
+          eskil={
+            false
+          }
+          offset={
+            0.18
+          }
+          darkness={
+            0.72
+          }
         />
       </EffectComposer>
 
@@ -1889,29 +2407,38 @@ export default function AdventureSceneContent({
         ref={
           handleControlsReady
         }
+
         makeDefault
+
         autoRotate={
           idleRotationEnabled &&
           !moving &&
           focusedSectionId ===
             null &&
-          !interactionPaused
+          sceneControlsAllowed
         }
-        autoRotateSpeed={2.8}
+
+        autoRotateSpeed={
+          2.8
+        }
+
         enabled={
           !moving &&
           focusedSectionId ===
             null &&
-          !interactionPaused
+          sceneControlsAllowed
         }
-        enablePan={false}
+
+        enablePan={
+          false
+        }
+
         enableRotate
 
-        /*
-         * Wheel and pinch zoom are disabled. The custom
-         * wheel listener above rotates horizontally.
-         */
-        enableZoom={false}
+        enableZoom={
+          false
+        }
+
         mouseButtons={{
           LEFT:
             MOUSE.ROTATE,
@@ -1922,35 +2449,40 @@ export default function AdventureSceneContent({
           RIGHT:
             MOUSE.PAN,
         }}
+
         touches={{
           ONE:
             TOUCH.ROTATE,
 
-          /*
-           * Zoom remains disabled, but the rotate portion
-           * of the two-finger gesture can still work.
-           */
           TWO:
             TOUCH.DOLLY_ROTATE,
         }}
+
         minPolarAngle={
           Math.PI / 7
         }
+
         maxPolarAngle={
-          Math.PI / 2.02
+          Math.PI /
+          2.02
         }
+
         rotateSpeed={
           compact
             ? 0.68
             : 0.82
         }
+
         enableDamping={
           !moving &&
           focusedSectionId ===
             null &&
-          !interactionPaused
+          sceneControlsAllowed
         }
-        dampingFactor={0.075}
+
+        dampingFactor={
+          0.075
+        }
       />
     </>
   );

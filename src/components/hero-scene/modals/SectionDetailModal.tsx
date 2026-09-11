@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+
 import {
   useCallback,
   useEffect,
@@ -21,6 +22,8 @@ import {
 } from "@/components/hero-scene/portfolioData";
 
 import ScrollToTopButton from "@/components/ScrollToTopButton";
+
+import useModalHomeReveal from "./useModalHomeReveal";
 
 const ABOUT_PORTRAIT_SRC =
   "/about/julie-anne.jpg";
@@ -69,31 +72,40 @@ type AboutSectionId =
 type CreditSectionId =
   (typeof CREDIT_NAV_ITEMS)[number]["id"];
 
-type NavigationItem<T extends string> = {
+type NavigationItem<
+  T extends string,
+> = {
   id: T;
   label: string;
 };
 
-const aboutExperienceItems = Array.isArray(
-  ABOUT_EXPERIENCE,
-)
-  ? ABOUT_EXPERIENCE
-  : [];
+const aboutExperienceItems =
+  Array.isArray(
+    ABOUT_EXPERIENCE,
+  )
+    ? ABOUT_EXPERIENCE
+    : [];
 
-const aboutSkillGroups = Array.isArray(
-  ABOUT_SKILL_GROUPS,
-)
-  ? ABOUT_SKILL_GROUPS
-  : [];
+const aboutSkillGroups =
+  Array.isArray(
+    ABOUT_SKILL_GROUPS,
+  )
+    ? ABOUT_SKILL_GROUPS
+    : [];
 
-const creditGroups = Array.isArray(
-  CREDIT_GROUPS,
-)
-  ? CREDIT_GROUPS
-  : [];
+const creditGroups =
+  Array.isArray(
+    CREDIT_GROUPS,
+  )
+    ? CREDIT_GROUPS
+    : [];
 
 type SectionDetailModalProps = {
-  detailId: "about" | "credits" | null;
+  detailId:
+    | "about"
+    | "credits"
+    | null;
+
   onClose: () => void;
 };
 
@@ -103,111 +115,137 @@ function useSectionNavigation<
   items: readonly NavigationItem<T>[],
   initialSection: T,
 ) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion =
+    useReducedMotion();
 
   const layoutRef =
-    useRef<HTMLDivElement | null>(null);
+    useRef<HTMLDivElement | null>(
+      null,
+    );
 
   const [
     activeSection,
     setActiveSection,
-  ] = useState<T>(initialSection);
+  ] = useState<T>(
+    initialSection,
+  );
 
   useEffect(() => {
-    const layout = layoutRef.current;
+    const layout =
+      layoutRef.current;
 
     const scrollRoot =
       layout?.closest<HTMLElement>(
         ".adventure-section-detail-modal",
       );
 
-    if (!layout || !scrollRoot) {
+    if (
+      !layout ||
+      !scrollRoot
+    ) {
       return;
     }
 
-    const sections = items.flatMap(
-      ({ id }) => {
-        const element =
-          layout.querySelector<HTMLElement>(
-            `#${id}`,
-          );
+    const sections =
+      items.flatMap(
+        ({
+          id,
+        }) => {
+          const element =
+            layout.querySelector<HTMLElement>(
+              `#${id}`,
+            );
 
-        return element
-          ? [
-              {
-                id,
-                element,
-              },
-            ]
-          : [];
-      },
-    );
+          return element
+            ? [
+                {
+                  id,
+                  element,
+                },
+              ]
+            : [];
+        },
+      );
 
-    if (sections.length === 0) {
+    if (
+      sections.length === 0
+    ) {
       return;
     }
 
     let animationFrame = 0;
 
-    const updateActiveSection = () => {
-      window.cancelAnimationFrame(
-        animationFrame,
-      );
+    const updateActiveSection =
+      () => {
+        window.cancelAnimationFrame(
+          animationFrame,
+        );
 
-      animationFrame =
-        window.requestAnimationFrame(() => {
-          const rootRect =
-            scrollRoot.getBoundingClientRect();
+        animationFrame =
+          window.requestAnimationFrame(
+            () => {
+              const rootRect =
+                scrollRoot.getBoundingClientRect();
 
-          const activationLine =
-            rootRect.top +
-            Math.min(
-              rootRect.height * 0.34,
-              260,
-            );
+              const activationLine =
+                rootRect.top +
+                Math.min(
+                  rootRect.height *
+                    0.34,
+                  260,
+                );
 
-          let nextSection:
-            | T
-            | undefined =
-            sections[0]?.id;
+              let nextSection:
+                | T
+                | undefined =
+                sections[0]?.id;
 
-          for (const section of sections) {
-            const sectionRect =
-              section.element.getBoundingClientRect();
+              for (
+                const section
+                of sections
+              ) {
+                const sectionRect =
+                  section.element.getBoundingClientRect();
 
-            if (
-              sectionRect.top <=
-              activationLine
-            ) {
-              nextSection = section.id;
-            } else {
-              break;
-            }
-          }
+                if (
+                  sectionRect.top <=
+                  activationLine
+                ) {
+                  nextSection =
+                    section.id;
+                } else {
+                  break;
+                }
+              }
 
-          const isAtBottom =
-            scrollRoot.scrollTop +
-              scrollRoot.clientHeight >=
-            scrollRoot.scrollHeight - 8;
+              const isAtBottom =
+                scrollRoot.scrollTop +
+                  scrollRoot.clientHeight >=
+                scrollRoot.scrollHeight -
+                  8;
 
-          if (isAtBottom) {
-            nextSection =
-              sections[
-                sections.length - 1
-              ]?.id;
-          }
+              if (isAtBottom) {
+                nextSection =
+                  sections[
+                    sections.length -
+                      1
+                  ]?.id;
+              }
 
-          if (nextSection) {
-            setActiveSection(
-              (currentSection) =>
-                currentSection ===
-                nextSection
-                  ? currentSection
-                  : nextSection,
-            );
-          }
-        });
-    };
+              if (nextSection) {
+                setActiveSection(
+                  (
+                    currentSection,
+                  ) =>
+                    currentSection ===
+                    nextSection
+                      ? currentSection
+                      : nextSection,
+                );
+              }
+            },
+          );
+      };
 
     updateActiveSection();
 
@@ -232,7 +270,9 @@ function useSectionNavigation<
           )
         : null;
 
-    resizeObserver?.observe(layout);
+    resizeObserver?.observe(
+      layout,
+    );
 
     return () => {
       window.cancelAnimationFrame(
@@ -251,56 +291,68 @@ function useSectionNavigation<
 
       resizeObserver?.disconnect();
     };
-  }, [items]);
+  }, [
+    items,
+  ]);
 
-  const scrollToSection = useCallback(
-    (sectionId: T) => {
-      const layout = layoutRef.current;
+  const scrollToSection =
+    useCallback(
+      (
+        sectionId: T,
+      ) => {
+        const layout =
+          layoutRef.current;
 
-      const scrollRoot =
-        layout?.closest<HTMLElement>(
-          ".adventure-section-detail-modal",
+        const scrollRoot =
+          layout?.closest<HTMLElement>(
+            ".adventure-section-detail-modal",
+          );
+
+        const section =
+          layout?.querySelector<HTMLElement>(
+            `#${sectionId}`,
+          );
+
+        if (
+          !layout ||
+          !scrollRoot ||
+          !section
+        ) {
+          return;
+        }
+
+        const rootRect =
+          scrollRoot.getBoundingClientRect();
+
+        const sectionRect =
+          section.getBoundingClientRect();
+
+        const nextScrollTop =
+          scrollRoot.scrollTop +
+          sectionRect.top -
+          rootRect.top -
+          36;
+
+        setActiveSection(
+          sectionId,
         );
 
-      const section =
-        layout?.querySelector<HTMLElement>(
-          `#${sectionId}`,
-        );
+        scrollRoot.scrollTo({
+          top: Math.max(
+            0,
+            nextScrollTop,
+          ),
 
-      if (
-        !layout ||
-        !scrollRoot ||
-        !section
-      ) {
-        return;
-      }
-
-      const rootRect =
-        scrollRoot.getBoundingClientRect();
-
-      const sectionRect =
-        section.getBoundingClientRect();
-
-      const nextScrollTop =
-        scrollRoot.scrollTop +
-        sectionRect.top -
-        rootRect.top -
-        36;
-
-      setActiveSection(sectionId);
-
-      scrollRoot.scrollTo({
-        top: Math.max(
-          0,
-          nextScrollTop,
-        ),
-        behavior: reduceMotion
-          ? "auto"
-          : "smooth",
-      });
-    },
-    [reduceMotion],
-  );
+          behavior:
+            reduceMotion
+              ? "auto"
+              : "smooth",
+        });
+      },
+      [
+        reduceMotion,
+      ],
+    );
 
   return {
     layoutRef,
@@ -313,10 +365,86 @@ export default function SectionDetailModal({
   detailId,
   onClose,
 }: SectionDetailModalProps) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion =
+    useReducedMotion();
 
   const modalRef =
-    useRef<HTMLElement | null>(null);
+    useRef<HTMLElement | null>(
+      null,
+    );
+
+  const revealRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    );
+
+  const backdropRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    );
+
+  /*
+  * Only this layer moves upward
+  * during the homepage reveal.
+  *
+  * ScrollToTopButton is intentionally
+  * INSIDE this layer so it leaves the
+  * screen together with the modal.
+  */
+  const liftLayerRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    );
+
+  const handleHomeRevealComplete =
+    useCallback(() => {
+      /*
+       * Remove About/Credits first.
+       * This releases interactionPaused
+       * in the already-running 3D scene.
+       */
+      onClose();
+
+      /*
+       * After React commits the modal
+       * state change, return the scene
+       * to the normal home orbit.
+       */
+      window.requestAnimationFrame(
+        () => {
+          window.requestAnimationFrame(
+            () => {
+              window.dispatchEvent(
+                new CustomEvent(
+                  "adventure:return-home",
+                ),
+              );
+            },
+          );
+        },
+      );
+    }, [
+      onClose,
+    ]);
+
+  useModalHomeReveal({
+    active: Boolean(
+      detailId,
+    ),
+
+    scrollRef: modalRef,
+
+    revealRef,
+
+    liftRef:
+      liftLayerRef,
+
+    releaseRef:
+      backdropRef,
+
+    onComplete:
+      handleHomeRevealComplete,
+  });
 
   useEffect(() => {
     if (!detailId) {
@@ -332,7 +460,10 @@ export default function SectionDetailModal({
     const handleKeyDown = (
       event: KeyboardEvent,
     ) => {
-      if (event.key === "Escape") {
+      if (
+        event.key ===
+        "Escape"
+      ) {
         onClose();
       }
     };
@@ -356,9 +487,14 @@ export default function SectionDetailModal({
         handleKeyDown,
       );
 
-      window.clearTimeout(focusTimer);
+      window.clearTimeout(
+        focusTimer,
+      );
     };
-  }, [detailId, onClose]);
+  }, [
+    detailId,
+    onClose,
+  ]);
 
   const isAbout =
     detailId === "about";
@@ -366,22 +502,52 @@ export default function SectionDetailModal({
   const isCredits =
     detailId === "credits";
 
-  const titleId = detailId
-    ? `section-detail-title-${detailId}`
-    : undefined;
+  const titleId =
+    detailId
+      ? `section-detail-title-${detailId}`
+      : undefined;
 
-  const panelInitial = reduceMotion
-    ? {
-        opacity: 0,
-      }
-    : {
-        opacity: 0,
-        scale: 0.94,
-        y: 44,
-        borderRadius: 36,
-        clipPath:
-          "inset(7% 7% 7% 7% round 36px)",
-      };
+  const modalClassName = [
+    "adventure-section-detail-modal",
+
+    isAbout
+      ? "adventure-section-detail-modal--about"
+      : "",
+
+    isCredits
+      ? "adventure-section-detail-modal--credits"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const surfaceClassName = [
+    "adventure-section-reveal-surface",
+
+    isAbout
+      ? "adventure-section-reveal-surface--about"
+      : "",
+
+    isCredits
+      ? "adventure-section-reveal-surface--credits"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const panelInitial =
+    reduceMotion
+      ? {
+          opacity: 0,
+        }
+      : {
+          opacity: 0,
+          scale: 0.94,
+          y: 44,
+          borderRadius: 36,
+          clipPath:
+            "inset(7% 7% 7% 7% round 36px)",
+        };
 
   const panelVisible = {
     opacity: 1,
@@ -392,161 +558,509 @@ export default function SectionDetailModal({
       "inset(0% 0% 0% 0% round 0px)",
   };
 
-  const panelExit = reduceMotion
-    ? {
-        opacity: 0,
-      }
-    : {
-        opacity: 0,
-        scale: 0.95,
-        y: 30,
-        borderRadius: 36,
-        clipPath:
-          "inset(6% 6% 6% 6% round 36px)",
-      };
-
-  const modalClassName = [
-    "adventure-section-detail-modal",
-    isAbout
-      ? "adventure-section-detail-modal--about"
-      : "",
-    isCredits
-      ? "adventure-section-detail-modal--credits"
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const panelExit =
+    reduceMotion
+      ? {
+          opacity: 0,
+        }
+      : {
+          opacity: 0,
+          scale: 0.95,
+          y: 32,
+          borderRadius: 36,
+          clipPath:
+            "inset(6% 6% 6% 6% round 36px)",
+        };
 
   return (
     <AnimatePresence mode="wait">
       {detailId && (
         <motion.div
+          ref={backdropRef}
           key={detailId}
           className="adventure-section-detail-backdrop"
           role="presentation"
           initial={{
             opacity: 0,
-            backdropFilter: "blur(0px)",
           }}
           animate={{
             opacity: 1,
-            backdropFilter: "blur(14px)",
           }}
           exit={{
             opacity: 0,
-            backdropFilter: "blur(0px)",
           }}
           transition={{
             duration: reduceMotion
               ? 0.12
               : 0.32,
           }}
+          style={{
+            background:
+              "transparent",
+
+            backdropFilter:
+              "none",
+          }}
           onClick={onClose}
         >
-          <motion.article
-            ref={modalRef}
-            tabIndex={-1}
-            className={modalClassName}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            initial={panelInitial}
-            animate={panelVisible}
-            exit={panelExit}
-            transition={
-              reduceMotion
-                ? {
-                    duration: 0.12,
-                  }
-                : {
-                    opacity: {
-                      duration: 0.25,
-                    },
-                    scale: {
-                      type: "spring",
-                      stiffness: 230,
-                      damping: 28,
-                      mass: 0.9,
-                    },
-                    y: {
-                      type: "spring",
-                      stiffness: 230,
-                      damping: 28,
-                      mass: 0.9,
-                    },
-                    borderRadius: {
-                      duration: 0.55,
-                      ease: [
-                        0.22,
-                        1,
-                        0.36,
-                        1,
-                      ],
-                    },
-                    clipPath: {
-                      duration: 0.62,
-                      ease: [
-                        0.22,
-                        1,
-                        0.36,
-                        1,
-                      ],
-                    },
-                  }
-            }
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
+          {/*
+          * This entire layer moves upward.
+          *
+          * The modal content and ScrollToTopButton
+          * both live inside it, so they leave the
+          * screen together while the backdrop itself
+          * remains stationary until release.
+          */}
+          <div
+            ref={liftLayerRef}
+            className="adventure-modal-lift-layer"
           >
-            <motion.div
-              className="adventure-full-view-body"
-              initial={
+            <motion.article
+              ref={modalRef}
+              tabIndex={-1}
+              className={modalClassName}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              initial={panelInitial}
+              animate={panelVisible}
+              exit={panelExit}
+              transition={
                 reduceMotion
                   ? {
-                      opacity: 0,
+                      duration: 0.12,
                     }
                   : {
-                      opacity: 0,
-                      y: 24,
+                      opacity: {
+                        duration: 0.25,
+                      },
+
+                      scale: {
+                        type: "spring",
+                        stiffness: 230,
+                        damping: 28,
+                        mass: 0.9,
+                      },
+
+                      y: {
+                        type: "spring",
+                        stiffness: 230,
+                        damping: 28,
+                        mass: 0.9,
+                      },
+
+                      borderRadius: {
+                        duration: 0.55,
+                        ease: [
+                          0.22,
+                          1,
+                          0.36,
+                          1,
+                        ],
+                      },
+
+                      clipPath: {
+                        duration: 0.62,
+                        ease: [
+                          0.22,
+                          1,
+                          0.36,
+                          1,
+                        ],
+                      },
                     }
               }
-              animate={{
-                opacity: 1,
-                y: 0,
+              style={{
+                background:
+                  "transparent",
+
+                padding: 0,
               }}
-              exit={{
-                opacity: 0,
-                y: 12,
-              }}
-              transition={{
-                duration: reduceMotion
-                  ? 0.12
-                  : 0.48,
-                delay: reduceMotion
-                  ? 0
-                  : 0.18,
-                ease: [
-                  0.22,
-                  1,
-                  0.36,
-                  1,
-                ],
+              onClick={(event) => {
+                event.stopPropagation();
               }}
             >
-              {isAbout ? (
-                <AboutDetail
-                  titleId={titleId}
-                />
-              ) : (
-                <CreditsDetail
-                  titleId={titleId}
-                />
-              )}
-            </motion.div>
-          </motion.article>
-          <ScrollToTopButton
-            scrollRef={modalRef}
-          />
+              <div
+                className={
+                  surfaceClassName
+                }
+              >
+                <motion.div
+                  className="adventure-full-view-body"
+                  initial={
+                    reduceMotion
+                      ? {
+                          opacity: 0,
+                        }
+                      : {
+                          opacity: 0,
+                          y: 24,
+                        }
+                  }
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    y: 12,
+                  }}
+                  transition={{
+                    duration:
+                      reduceMotion
+                        ? 0.12
+                        : 0.48,
+
+                    delay:
+                      reduceMotion
+                        ? 0
+                        : 0.18,
+
+                    ease: [
+                      0.22,
+                      1,
+                      0.36,
+                      1,
+                    ],
+                  }}
+                >
+                  {isAbout ? (
+                    <AboutDetail
+                      titleId={
+                        titleId
+                      }
+                    />
+                  ) : (
+                    <CreditsDetail
+                      titleId={
+                        titleId
+                      }
+                    />
+                  )}
+                </motion.div>
+              </div>
+
+              <div
+                ref={revealRef}
+                className="adventure-home-reveal-track"
+                aria-hidden="true"
+              />
+            </motion.article>
+
+            {/*
+            * IMPORTANT:
+            * The button lives inside the
+            * moving modal layer so it leaves
+            * the screen with the modal.
+            */}
+            <div className="adventure-modal-scroll-button-carrier">
+              <ScrollToTopButton
+                scrollRef={modalRef}
+              />
+            </div>
+          </div>
+
+          <style jsx global>{`
+          
+            .adventure-modal-lift-layer {
+              position: absolute;
+              inset: 0;
+
+              width: 100%;
+              height: 100%;
+
+              will-change: transform;
+            }
+
+            .adventure-modal-scroll-button-carrier {
+              position: absolute;
+              inset: 0;
+
+              width: 100%;
+              height: 100%;
+
+              pointer-events: none;
+
+              /*
+              * translate3d is intentional.
+              *
+              * It creates the containing block
+              * for ScrollToTopButton's fixed
+              * positioning.
+              *
+              * The extra Y movement matches the
+              * native scrolling of the modal
+              * background during the reveal.
+              */
+              transform:
+                translate3d(
+                  0,
+                  calc(
+                    -1 *
+                    var(
+                      --adventure-modal-native-scroll-shift,
+                      0px
+                    )
+                  ),
+                  0
+                );
+
+              will-change: transform;
+            }
+
+            /*
+            * The actual button remains clickable.
+            */
+            .adventure-modal-scroll-button-carrier
+              button {
+              pointer-events: auto;
+            }
+
+            /*
+            * Once the homepage starts entering,
+            * hide the modal's native scrollbar.
+            *
+            * This prevents the pink scrollbar
+            * from floating over the exposed 3D
+            * scene as well.
+            */
+            [data-home-reveal-active="true"] {
+              scrollbar-width:
+                none !important;
+            }
+
+            [data-home-reveal-active="true"]::-webkit-scrollbar {
+              width:
+                0 !important;
+
+              height:
+                0 !important;
+            }
+
+            .adventure-section-detail-backdrop {
+              background:
+                transparent !important;
+
+              backdrop-filter:
+                none !important;
+
+              -webkit-backdrop-filter:
+                none !important;
+            }
+
+            .adventure-section-detail-modal {
+              background:
+                transparent !important;
+
+              padding:
+                0 !important;
+
+              /*
+              * Firefox fallback.
+              * Pink thumb, dark modal-colored track.
+              */
+              scrollbar-color:
+                #ff68b7
+                #0b081a;
+            }
+
+            /*
+            * Chrome / Edge / Safari.
+            * This fills the previously transparent
+            * scrollbar area with the modal background.
+            */
+            .adventure-section-detail-modal::-webkit-scrollbar {
+              background:
+                #0b081a;
+            }
+
+            /*
+            * About uses the same dark gradient
+            * as its modal surface.
+            */
+            .adventure-section-detail-modal--about::-webkit-scrollbar-track {
+              background:
+                linear-gradient(
+                  180deg,
+                  #0b081a 0%,
+                  #070511 53%,
+                  #03030a 100%
+                );
+            }
+
+            /*
+            * Credits has the slightly different
+            * middle tone already used by that modal.
+            */
+            .adventure-section-detail-modal--credits::-webkit-scrollbar-track {
+              background:
+                linear-gradient(
+                  180deg,
+                  #0b081a 0%,
+                  #080612 51%,
+                  #03030a 100%
+                );
+            }
+
+            .adventure-section-detail-modal::-webkit-scrollbar-corner {
+              background:
+                #0b081a;
+            }
+
+            .adventure-section-reveal-surface {
+              position: relative;
+
+              width: 100%;
+
+              min-height: 100vh;
+              min-height: 100dvh;
+
+              box-sizing:
+                border-box;
+
+              padding:
+                clamp(
+                  82px,
+                  9vw,
+                  138px
+                )
+                clamp(
+                  24px,
+                  8vw,
+                  150px
+                )
+                clamp(
+                  80px,
+                  9vw,
+                  140px
+                );
+            }
+
+            .adventure-section-reveal-surface--about {
+              background:
+                radial-gradient(
+                  circle at 86% 5%,
+                  rgba(
+                    154,
+                    92,
+                    255,
+                    0.2
+                  ),
+                  transparent
+                    31%
+                ),
+                radial-gradient(
+                  circle at 8% 86%,
+                  rgba(
+                    255,
+                    63,
+                    159,
+                    0.14
+                  ),
+                  transparent
+                    35%
+                ),
+                radial-gradient(
+                  circle at 52%
+                    110%,
+                  rgba(
+                    105,
+                    223,
+                    255,
+                    0.07
+                  ),
+                  transparent
+                    34%
+                ),
+                linear-gradient(
+                  180deg,
+                  #0b081a 0%,
+                  #070511 53%,
+                  #03030a 100%
+                );
+            }
+
+            .adventure-section-reveal-surface--credits {
+              background:
+                radial-gradient(
+                  circle at 88% 7%,
+                  rgba(
+                    255,
+                    63,
+                    159,
+                    0.16
+                  ),
+                  transparent
+                    29%
+                ),
+                radial-gradient(
+                  circle at 7% 82%,
+                  rgba(
+                    154,
+                    92,
+                    255,
+                    0.19
+                  ),
+                  transparent
+                    34%
+                ),
+                radial-gradient(
+                  circle at 50%
+                    112%,
+                  rgba(
+                    105,
+                    223,
+                    255,
+                    0.07
+                  ),
+                  transparent
+                    31%
+                ),
+                linear-gradient(
+                  180deg,
+                  #0b081a 0%,
+                  #080612 51%,
+                  #03030a 100%
+                );
+            }
+
+            .adventure-home-reveal-track {
+              position: relative;
+
+              display: block;
+
+              width: 100%;
+
+              height: 100vh;
+              height: 100dvh;
+
+              min-height: 100vh;
+
+              flex: 0 0 auto;
+
+              background:
+                transparent;
+
+              pointer-events:
+                none;
+            }
+
+            @media (
+              max-width: 767px
+            ) {
+              .adventure-section-reveal-surface {
+                padding:
+                  76px
+                  20px
+                  calc(
+                    70px +
+                      env(
+                        safe-area-inset-bottom
+                      )
+                  );
+              }
+            }
+          `}</style>
         </motion.div>
       )}
     </AnimatePresence>
@@ -569,7 +1083,8 @@ function AboutDetail({
     );
 
   const firstEducationIndex =
-    aboutExperienceItems.length + 1;
+    aboutExperienceItems.length +
+    1;
 
   return (
     <div
@@ -581,9 +1096,12 @@ function AboutDetail({
         aria-label="About page sections"
       >
         {ABOUT_NAV_ITEMS.map(
-          (item) => {
+          (
+            item,
+          ) => {
             const isActive =
-              activeSection === item.id;
+              activeSection ===
+              item.id;
 
             return (
               <a
@@ -599,7 +1117,9 @@ function AboutDetail({
                     ? "location"
                     : undefined
                 }
-                onClick={(event) => {
+                onClick={(
+                  event,
+                ) => {
                   event.preventDefault();
 
                   scrollToSection(
@@ -621,13 +1141,17 @@ function AboutDetail({
 
       <div className="haruni-about-content">
         <header className="haruni-about-page-heading">
-          <p>About Me</p>
+          <p>
+            About Me
+          </p>
 
           <h2 id={titleId}>
             Julie Anne
           </h2>
 
-          <span>Profile</span>
+          <span>
+            Profile
+          </span>
         </header>
 
         <section
@@ -649,9 +1173,13 @@ function AboutDetail({
               </div>
 
               <div className="haruni-profile-photo-label">
-                <span>Malmö</span>
+                <span>
+                  Malmö
+                </span>
 
-                <strong>Sweden</strong>
+                <strong>
+                  Sweden
+                </strong>
               </div>
             </div>
 
@@ -661,41 +1189,74 @@ function AboutDetail({
               </p>
 
               <h3>
-                I build software with
-                structure, creativity, and
+                I build
+                software with
+                structure,
+                creativity,
+                and
                 personality.
               </h3>
 
               <p>
-                I&apos;m Julie Anne, a
-                software developer with
-                experience in fullstack
-                development, embedded
-                systems, AI-related work,
-                and creative interactive
+                I&apos;m Julie
+                Anne, a
+                software
+                developer with
+                experience in
+                fullstack
+                development,
+                embedded
+                systems,
+                AI-related
+                work, and
+                creative
+                interactive
                 interfaces.
               </p>
 
               <p>
-                I enjoy transforming ideas
-                into products that feel
-                clear and useful while
-                still having visual
-                character. I care about
-                thoughtful design on the
-                surface and maintainable
-                architecture behind it.
+                I enjoy
+                transforming
+                ideas into
+                products that
+                feel clear and
+                useful while
+                still having
+                visual
+                character. I
+                care about
+                thoughtful
+                design on the
+                surface and
+                maintainable
+                architecture
+                behind it.
               </p>
 
               <div className="haruni-profile-tags">
-                <span>Fullstack</span>
-                <span>Frontend</span>
-                <span>Backend</span>
-                <span>Embedded</span>
-                <span>AI</span>
+                <span>
+                  Fullstack
+                </span>
 
                 <span>
-                  Creative Development
+                  Frontend
+                </span>
+
+                <span>
+                  Backend
+                </span>
+
+                <span>
+                  Embedded
+                </span>
+
+                <span>
+                  AI
+                </span>
+
+                <span>
+                  Creative
+                  Development
                 </span>
               </div>
             </div>
@@ -703,59 +1264,86 @@ function AboutDetail({
 
           <div className="haruni-profile-overview">
             <div className="haruni-subsection-heading">
-              <h3>Profile</h3>
+              <h3>
+                Profile
+              </h3>
 
-              <span>Overview</span>
+              <span>
+                Overview
+              </span>
             </div>
 
             <dl className="haruni-profile-table">
               <div>
-                <dt>Name</dt>
+                <dt>
+                  Name
+                </dt>
 
                 <dd>
-                  Julie Anne Cantillep
+                  Julie Anne
+                  Cantillep
                 </dd>
               </div>
 
               <div>
-                <dt>Role</dt>
+                <dt>
+                  Role
+                </dt>
 
                 <dd>
-                  Software Developer
+                  Software
+                  Developer
                 </dd>
               </div>
 
               <div>
-                <dt>Location</dt>
+                <dt>
+                  Location
+                </dt>
 
                 <dd>
-                  Malmö, Sweden
+                  Malmö,
+                  Sweden
                 </dd>
               </div>
 
               <div>
-                <dt>Focus</dt>
+                <dt>
+                  Focus
+                </dt>
 
                 <dd>
-                  Fullstack development,
-                  creative frontend,
-                  embedded systems, and AI
+                  Fullstack
+                  development,
+                  creative
+                  frontend,
+                  embedded
+                  systems, and
+                  AI
                 </dd>
               </div>
 
               <div>
-                <dt>Approach</dt>
+                <dt>
+                  Approach
+                </dt>
 
                 <dd>
-                  Clear structure,
-                  thoughtful details,
-                  accessible interfaces,
-                  and playful interaction
+                  Clear
+                  structure,
+                  thoughtful
+                  details,
+                  accessible
+                  interfaces,
+                  and playful
+                  interaction
                 </dd>
               </div>
 
               <div>
-                <dt>Email</dt>
+                <dt>
+                  Email
+                </dt>
 
                 <dd>
                   <a href="mailto:kisamae1997@gmail.com">
@@ -772,22 +1360,32 @@ function AboutDetail({
           className="haruni-about-section haruni-journey-section"
         >
           <div className="haruni-subsection-heading">
-            <h3>My Journey</h3>
+            <h3>
+              My Journey
+            </h3>
 
             <span>
-              Experience &amp; Education
+              Experience
+              &amp;
+              Education
             </span>
           </div>
 
           <div className="haruni-journey-layout">
             <aside className="haruni-journey-aside">
-              <p>Developer</p>
+              <p>
+                Developer
+              </p>
 
-              <strong>JA</strong>
+              <strong>
+                JA
+              </strong>
 
               <span>
-                Learning, experimenting,
-                and creating one project at
+                Learning,
+                experimenting,
+                and creating
+                one project at
                 a time.
               </span>
             </aside>
@@ -814,7 +1412,8 @@ function AboutDetail({
                       >
                         <div className="haruni-timeline-number">
                           {String(
-                            index + 1,
+                            index +
+                              1,
                           ).padStart(
                             2,
                             "0",
@@ -873,8 +1472,11 @@ function AboutDetail({
                 )
               ) : (
                 <p className="adventure-section-empty-state">
-                  Experience details are
-                  currently being updated.
+                  Experience
+                  details are
+                  currently
+                  being
+                  updated.
                 </p>
               )}
 
@@ -882,44 +1484,62 @@ function AboutDetail({
                 <div className="haruni-timeline-number">
                   {String(
                     firstEducationIndex,
-                  ).padStart(2, "0")}
+                  ).padStart(
+                    2,
+                    "0",
+                  )}
                 </div>
 
                 <div className="haruni-timeline-content">
-                  <time>2026</time>
+                  <time>
+                    2026
+                  </time>
 
                   <h4>
-                    Fullstack Developer
+                    Fullstack
+                    Developer
                   </h4>
 
                   <strong>
-                    The Media Institute
+                    The Media
+                    Institute
                   </strong>
 
                   <p>
-                    Studied frontend and
-                    backend development,
-                    databases, e-commerce
-                    systems, APIs, and
-                    fullstack application
+                    Studied
+                    frontend and
+                    backend
+                    development,
+                    databases,
+                    e-commerce
+                    systems,
+                    APIs, and
+                    fullstack
+                    application
                     architecture.
                   </p>
 
                   <ul>
                     <li>
-                      Frontend, backend,
-                      databases, and system
+                      Frontend,
+                      backend,
+                      databases,
+                      and system
                       development.
                     </li>
 
                     <li>
-                      Projects built with
-                      agile methods.
+                      Projects
+                      built with
+                      agile
+                      methods.
                     </li>
 
                     <li>
-                      E-commerce platforms
-                      and fullstack
+                      E-commerce
+                      platforms
+                      and
+                      fullstack
                       application
                       structure.
                     </li>
@@ -932,43 +1552,64 @@ function AboutDetail({
                   {String(
                     firstEducationIndex +
                       1,
-                  ).padStart(2, "0")}
+                  ).padStart(
+                    2,
+                    "0",
+                  )}
                 </div>
 
                 <div className="haruni-timeline-content">
-                  <time>2024</time>
+                  <time>
+                    2024
+                  </time>
 
                   <h4>
-                    Embedded Software
+                    Embedded
+                    Software
                     Development
                   </h4>
 
                   <strong>
-                    Movant University of
-                    Applied Science
+                    Movant
+                    University
+                    of Applied
+                    Science
                   </strong>
 
                   <p>
-                    Worked with embedded
-                    programming, hardware
+                    Worked with
+                    embedded
+                    programming,
+                    hardware
                     communication,
-                    real-time systems, C,
-                    C++, and autonomous
-                    vehicle development.
+                    real-time
+                    systems, C,
+                    C++, and
+                    autonomous
+                    vehicle
+                    development.
                   </p>
 
                   <ul>
                     <li>
-                      Embedded programming,
+                      Embedded
+                      programming,
                       hardware
-                      communication, and
-                      real-time systems.
+                      communication,
+                      and
+                      real-time
+                      systems.
                     </li>
 
                     <li>
-                      Led a group project
-                      that produced an
-                      autonomous car.
+                      Led a
+                      group
+                      project
+                      that
+                      produced
+                      an
+                      autonomous
+                      car.
                     </li>
                   </ul>
                 </div>
@@ -982,16 +1623,23 @@ function AboutDetail({
           className="haruni-about-section"
         >
           <div className="haruni-subsection-heading">
-            <h3>Skills</h3>
+            <h3>
+              Skills
+            </h3>
 
-            <span>Toolbox</span>
+            <span>
+              Toolbox
+            </span>
           </div>
 
           <div className="haruni-skill-list">
             {aboutSkillGroups.length >
             0 ? (
               aboutSkillGroups.map(
-                (group, index) => {
+                (
+                  group,
+                  index,
+                ) => {
                   const groupItems =
                     Array.isArray(
                       group.items,
@@ -1001,12 +1649,15 @@ function AboutDetail({
 
                   return (
                     <article
-                      key={group.title}
+                      key={
+                        group.title
+                      }
                       className="haruni-skill-row"
                     >
                       <span className="haruni-skill-index">
                         {String(
-                          index + 1,
+                          index +
+                            1,
                         ).padStart(
                           2,
                           "0",
@@ -1014,16 +1665,24 @@ function AboutDetail({
                       </span>
 
                       <h4>
-                        {group.title}
+                        {
+                          group.title
+                        }
                       </h4>
 
                       <div>
                         {groupItems.map(
-                          (item) => (
+                          (
+                            item,
+                          ) => (
                             <span
-                              key={item}
+                              key={
+                                item
+                              }
                             >
-                              {item}
+                              {
+                                item
+                              }
                             </span>
                           ),
                         )}
@@ -1034,8 +1693,10 @@ function AboutDetail({
               )
             ) : (
               <p className="adventure-section-empty-state">
-                Skill details are
-                currently being updated.
+                Skill details
+                are currently
+                being
+                updated.
               </p>
             )}
           </div>
@@ -1047,22 +1708,29 @@ function AboutDetail({
         >
           <div className="haruni-subsection-heading">
             <h3>
-              Let&apos;s Connect
+              Let&apos;s
+              Connect
             </h3>
 
-            <span>Contact</span>
+            <span>
+              Contact
+            </span>
           </div>
 
           <p className="haruni-contact-intro">
-            Have a project, opportunity,
-            or idea in mind? You can reach
-            me through any of the links
-            below.
+            Have a project,
+            opportunity, or
+            idea in mind? You
+            can reach me
+            through any of the
+            links below.
           </p>
 
           <div className="haruni-contact-links">
             <a href="mailto:kisamae1997@gmail.com">
-              <span>Email</span>
+              <span>
+                Email
+              </span>
 
               <strong>
                 kisamae1997@gmail.com
@@ -1075,7 +1743,8 @@ function AboutDetail({
               rel="noopener noreferrer"
             >
               <span>
-                Professional profile
+                Professional
+                profile
               </span>
 
               <strong>
@@ -1089,7 +1758,8 @@ function AboutDetail({
               rel="noopener noreferrer"
             >
               <span>
-                Development work
+                Development
+                work
               </span>
 
               <strong>
@@ -1128,9 +1798,12 @@ function CreditsDetail({
         aria-label="Credits page sections"
       >
         {CREDIT_NAV_ITEMS.map(
-          (item) => {
+          (
+            item,
+          ) => {
             const isActive =
-              activeSection === item.id;
+              activeSection ===
+              item.id;
 
             return (
               <a
@@ -1146,7 +1819,9 @@ function CreditsDetail({
                     ? "location"
                     : undefined
                 }
-                onClick={(event) => {
+                onClick={(
+                  event,
+                ) => {
                   event.preventDefault();
 
                   scrollToSection(
@@ -1172,48 +1847,72 @@ function CreditsDetail({
           className="credits-editorial-overview"
         >
           <header className="credits-editorial-page-heading">
-            <p>Credits</p>
+            <p>
+              Credits
+            </p>
 
             <h2 id={titleId}>
-              Built with love
+              Built with
+              love
             </h2>
 
             <span>
-              Portfolio production
+              Portfolio
+              production
             </span>
           </header>
 
           <div className="credits-editorial-intro">
             <p className="credits-editorial-eyebrow">
-              Interactive portfolio
+              Interactive
+              portfolio
             </p>
 
             <h3>
-              An interactive world shaped
-              by code, 3D, motion, sound,
-              and thoughtful details.
+              An interactive
+              world shaped by
+              code, 3D,
+              motion, sound,
+              and thoughtful
+              details.
             </h3>
 
             <p>
-              I designed and developed this
-              portfolio as a small place to
-              explore rather than a
-              standard page. It combines a
-              3D environment, animated
-              interfaces, sound,
-              accessible controls, and
-              responsive web development.
+              I designed and
+              developed this
+              portfolio as a
+              small place to
+              explore rather
+              than a standard
+              page. It
+              combines a 3D
+              environment,
+              animated
+              interfaces,
+              sound,
+              accessible
+              controls, and
+              responsive web
+              development.
             </p>
 
             <p>
-              Some creative assets were
-              made by other artists and
-              are credited below. The
-              interface, development,
-              interaction design,
-              integration, and overall
-              portfolio direction were
-              created and assembled by me.
+              Some creative
+              assets were
+              made by other
+              artists and are
+              credited below.
+              The interface,
+              development,
+              interaction
+              design,
+              integration,
+              and overall
+              portfolio
+              direction were
+              created and
+              assembled by
+              me.
             </p>
           </div>
 
@@ -1231,11 +1930,13 @@ function CreditsDetail({
               </span>
 
               <strong>
-                World &amp; sound
+                World &amp;
+                sound
               </strong>
 
               <small>
-                Scene, models and music
+                Scene, model
+                and music
               </small>
 
               <span
@@ -1259,11 +1960,14 @@ function CreditsDetail({
               </span>
 
               <strong>
-                Web production
+                Web
+                production
               </strong>
 
               <small>
-                Technology and interaction
+                Technology
+                and
+                interaction
               </small>
 
               <span
@@ -1282,51 +1986,65 @@ function CreditsDetail({
         >
           <div className="credits-editorial-section-heading">
             <p>
-              Creative attribution
+              Creative
+              attribution
             </p>
 
             <h3>
-              Scene, model &amp; music
+              Scene, model
+              &amp; music
             </h3>
 
             <span>
-              Original creators
+              Original
+              creators
             </span>
           </div>
 
           <div className="credits-attribution-grid">
             <article>
               <div className="credits-attribution-orb">
-                <span>01</span>
+                <span>
+                  01
+                </span>
               </div>
 
               <p>
-                Original 3D environment
+                Original 3D
+                environment
               </p>
 
               <h4>
-                A Mysterious Adventure —
-                3D Editor Challenge
+                A Mysterious
+                Adventure —
+                3D Editor
+                Challenge
               </h4>
 
               <strong>
-                Scene by Diosmel
+                Scene by
+                Diosmel
               </strong>
 
               <span>
-                Used under the Creative
-                Commons Attribution 4.0
-                license.
+                Used under
+                the Creative
+                Commons
+                Attribution
+                4.0 license.
               </span>
             </article>
 
             <article>
               <div className="credits-attribution-orb">
-                <span>02</span>
+                <span>
+                  02
+                </span>
               </div>
 
               <p>
-                Additional 3D model
+                Additional
+                3D model
               </p>
 
               <h4>
@@ -1334,28 +2052,37 @@ function CreditsDetail({
               </h4>
 
               <strong>
-                Model by dimal965
+                Model by
+                dimal965
               </strong>
 
               <span>
-                Sakura Tree model
-                published on Sketchfab and
-                integrated into the
-                portfolio scene.
+                Sakura Tree
+                model
+                published on
+                Sketchfab and
+                integrated
+                into the
+                portfolio
+                scene.
               </span>
             </article>
 
             <article>
               <div className="credits-attribution-orb">
-                <span>03</span>
+                <span>
+                  03
+                </span>
               </div>
 
               <p>
-                Background music
+                Background
+                music
               </p>
 
               <h4>
-                Japanese Jazz 2
+                Japanese
+                Jazz 2
               </h4>
 
               <strong>
@@ -1363,8 +2090,11 @@ function CreditsDetail({
               </strong>
 
               <span>
-                Used as the ambient music
-                for the interactive 3D
+                Used as the
+                ambient music
+                for the
+                interactive
+                3D
                 experience.
               </span>
             </article>
@@ -1377,27 +2107,40 @@ function CreditsDetail({
         >
           <div className="credits-editorial-section-heading">
             <p>
-              Portfolio production
+              Portfolio
+              production
             </p>
 
             <h3>
-              Tools &amp; technology
+              Tools &amp;
+              technology
             </h3>
 
             <span>
-              How the experience was built
+              How the
+              experience
+              was built
             </span>
           </div>
 
-          {creditGroups.length > 0 && (
+          {creditGroups.length >
+            0 && (
             <div
               className="credits-discipline-row"
               aria-label="Portfolio production areas"
             >
               {creditGroups.map(
-                (group) => (
-                  <span key={group.title}>
-                    {group.title}
+                (
+                  group,
+                ) => (
+                  <span
+                    key={
+                      group.title
+                    }
+                  >
+                    {
+                      group.title
+                    }
                   </span>
                 ),
               )}
@@ -1405,9 +2148,13 @@ function CreditsDetail({
           )}
 
           <div className="credits-production-grid">
-            {creditGroups.length > 0 ? (
+            {creditGroups.length >
+            0 ? (
               creditGroups.map(
-                (group, index) => {
+                (
+                  group,
+                  index,
+                ) => {
                   const groupItems =
                     Array.isArray(
                       group.items,
@@ -1417,12 +2164,15 @@ function CreditsDetail({
 
                   return (
                     <article
-                      key={group.title}
+                      key={
+                        group.title
+                      }
                       className="credits-production-card"
                     >
                       <span className="credits-production-index">
                         {String(
-                          index + 1,
+                          index +
+                            1,
                         ).padStart(
                           2,
                           "0",
@@ -1431,14 +2181,24 @@ function CreditsDetail({
 
                       <div>
                         <h4>
-                          {group.title}
+                          {
+                            group.title
+                          }
                         </h4>
 
                         <ul>
                           {groupItems.map(
-                            (item) => (
-                              <li key={item}>
-                                {item}
+                            (
+                              item,
+                            ) => (
+                              <li
+                                key={
+                                  item
+                                }
+                              >
+                                {
+                                  item
+                                }
                               </li>
                             ),
                           )}
@@ -1450,8 +2210,11 @@ function CreditsDetail({
               )
             ) : (
               <p className="adventure-section-empty-state">
-                Credit details are
-                currently being updated.
+                Credit
+                details are
+                currently
+                being
+                updated.
               </p>
             )}
           </div>
@@ -1463,63 +2226,94 @@ function CreditsDetail({
         >
           <div className="credits-editorial-section-heading">
             <p>
-              Creative direction
+              Creative
+              direction
             </p>
 
             <h3>
-              What shaped the portfolio
+              What shaped
+              the portfolio
             </h3>
 
             <span>
-              Atmosphere and interaction
+              Atmosphere
+              and
+              interaction
             </span>
           </div>
 
           <div className="credits-direction-grid">
             <article>
-              <span>01</span>
+              <span>
+                01
+              </span>
 
               <h4>
                 Cozy spaces
               </h4>
 
               <p>
-                I wanted the portfolio to
-                feel like a place visitors
-                could explore, rather than
-                another conventional page
-                to scroll through.
+                I wanted the
+                portfolio to
+                feel like a
+                place
+                visitors
+                could explore,
+                rather than
+                another
+                conventional
+                page to
+                scroll
+                through.
               </p>
             </article>
 
             <article>
-              <span>02</span>
+              <span>
+                02
+              </span>
 
               <h4>
-                Moody color palette
+                Moody color
+                palette
               </h4>
 
               <p>
-                Dark city tones, warm
-                lights, violet shadows,
-                and pink reflections
-                connect the scene and
+                Dark city
+                tones, warm
+                lights,
+                violet
+                shadows, and
+                pink
+                reflections
+                connect the
+                scene and
                 interface.
               </p>
             </article>
 
             <article>
-              <span>03</span>
+              <span>
+                03
+              </span>
 
               <h4>
-                Playful interactions
+                Playful
+                interactions
               </h4>
 
               <p>
-                Camera movement, scene
-                markers, ambient sound,
-                and small animations give
-                visitors details to
+                Camera
+                movement,
+                scene
+                markers,
+                ambient
+                sound, and
+                small
+                animations
+                give
+                visitors
+                details to
                 discover.
               </p>
             </article>
@@ -1527,16 +2321,20 @@ function CreditsDetail({
 
           <div className="credits-editorial-closing">
             <p>
-              Designed, developed, and
-              assembled by
+              Designed,
+              developed,
+              and assembled
+              by
             </p>
 
             <strong>
-              Julie Anne Cantillep
+              Julie Anne
+              Cantillep
             </strong>
 
             <span>
-              Malmö, Sweden
+              Malmö,
+              Sweden
             </span>
           </div>
         </section>

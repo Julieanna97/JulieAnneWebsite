@@ -4967,6 +4967,261 @@ export default function SakuraThemeStyles() {
         .adventure-detail-button:hover::before {
           opacity: 0;
         }
+
+        /* ================================================================ */
+        /* Scroll-to-home reveal                                             */
+        /* ================================================================ */
+
+        .adventure-home-reveal-tint {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+
+          pointer-events: none;
+
+          opacity: var(
+            --home-reveal-tint-opacity,
+            1
+          );
+
+          background:
+            radial-gradient(
+              circle at 16% 14%,
+              rgba(142, 76, 225, 0.2),
+              transparent 32%
+            ),
+            radial-gradient(
+              circle at 85% 84%,
+              rgba(255, 67, 163, 0.15),
+              transparent 36%
+            ),
+            rgba(3, 3, 11, 0.88);
+
+          backdrop-filter:
+            blur(14px)
+            saturate(1.08);
+
+          will-change: opacity;
+        }
+
+        /*
+        * This is the transparent final viewport.
+        *
+        * As it enters the scroll viewport,
+        * the real Three.js scene underneath
+        * becomes visible.
+        */
+        .adventure-home-reveal-spacer {
+          position: relative;
+
+          width: 100%;
+          height: 100vh;
+          height: 100dvh;
+
+          flex: 0 0 100dvh;
+
+          background: transparent;
+
+          pointer-events: none;
+        }
+
+        /*
+        * The scrolling modal itself needs to
+        * be transparent.
+        *
+        * Its normal appearance is moved onto
+        * adventure-modal-content-surface.
+        */
+        .adventure-case-study-modal,
+        .adventure-section-detail-modal {
+          background: transparent;
+
+          padding: 0;
+        }
+
+        /*
+        * The actual dark portfolio page.
+        */
+        .adventure-modal-content-surface {
+          position: relative;
+          z-index: 1;
+
+          width: 100%;
+          min-height: 100vh;
+          min-height: 100dvh;
+
+          box-sizing: border-box;
+
+          padding:
+            clamp(82px, 9vw, 138px)
+            clamp(24px, 8vw, 150px)
+            clamp(80px, 9vw, 140px);
+
+          background:
+            radial-gradient(
+              circle at 86% 4%,
+              rgba(118, 76, 222, 0.19),
+              transparent 30%
+            ),
+            radial-gradient(
+              circle at 8% 88%,
+              rgba(255, 63, 159, 0.13),
+              transparent 34%
+            ),
+            radial-gradient(
+              circle at 52% 112%,
+              rgba(105, 223, 255, 0.075),
+              transparent 34%
+            ),
+            linear-gradient(
+              180deg,
+              #0b081a 0%,
+              #070511 53%,
+              #03030a 100%
+            );
+        }
+
+        /* ================================================================ */
+        /* 3D homepage reveal                                                */
+        /* ================================================================ */
+
+        /*
+        * These outer layers must NOT paint
+        * anything during the transparent
+        * final viewport.
+        */
+        .adventure-case-study-backdrop,
+        .adventure-section-detail-backdrop {
+          background: transparent !important;
+
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+
+        /*
+        * The scrolling modal itself must also
+        * be transparent.
+        *
+        * The visible page background belongs
+        * on the content surface instead.
+        */
+        .adventure-case-study-modal,
+        .adventure-section-detail-modal,
+        .adventure-section-detail-modal--about,
+        .adventure-section-detail-modal--credits {
+          background: transparent !important;
+
+          padding: 0 !important;
+        }
+
+        /*
+        * Actual opaque page content.
+        */
+        .adventure-case-study-reveal-surface,
+        .adventure-section-reveal-surface {
+          position: relative;
+
+          width: 100%;
+
+          min-height: 100vh;
+          min-height: 100dvh;
+
+          box-sizing: border-box;
+
+          padding:
+            clamp(
+              82px,
+              9vw,
+              138px
+            )
+            clamp(
+              24px,
+              8vw,
+              150px
+            )
+            clamp(
+              80px,
+              9vw,
+              140px
+            );
+
+          background:
+            radial-gradient(
+              circle at 86% 4%,
+              rgba(
+                118,
+                76,
+                222,
+                0.19
+              ),
+              transparent 30%
+            ),
+            radial-gradient(
+              circle at 8% 88%,
+              rgba(
+                255,
+                63,
+                159,
+                0.13
+              ),
+              transparent 34%
+            ),
+            radial-gradient(
+              circle at 52% 112%,
+              rgba(
+                105,
+                223,
+                255,
+                0.075
+              ),
+              transparent 34%
+            ),
+            linear-gradient(
+              180deg,
+              #0b081a 0%,
+              #070511 53%,
+              #03030a 100%
+            );
+        }
+
+        /*
+        * THIS is the actual hole/window
+        * through which the live Three.js
+        * homepage becomes visible.
+        */
+        .adventure-home-reveal-window {
+          position: relative;
+
+          display: block;
+
+          width: 100%;
+
+          height: 100vh;
+          height: 100dvh;
+
+          min-height: 100vh;
+
+          flex: 0 0 auto;
+
+          background: transparent !important;
+
+          pointer-events: none;
+        }
+
+        @media (max-width: 767px) {
+          .adventure-case-study-reveal-surface,
+          .adventure-section-reveal-surface {
+            padding:
+              68px
+              18px
+              calc(
+                70px +
+                  env(
+                    safe-area-inset-bottom
+                  )
+              );
+          }
+        }
       }
     `}</style>
   );

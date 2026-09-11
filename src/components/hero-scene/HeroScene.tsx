@@ -76,6 +76,9 @@ const RETURN_HOME_EVENT =
 const INTRO_EVENT =
   "adventure:intro";
 
+const MODAL_REVEAL_STATE_EVENT =
+  "adventure:modal-reveal-state";
+
 export default function HeroScene({
   onSceneReady,
 }: HeroSceneProps) {
@@ -109,18 +112,11 @@ export default function HeroScene({
       [],
     );
 
-  /*
-   * Full-screen Projects overview opened by the
-   * standalone navigation.
-   */
   const [
     projectsOverviewOpen,
     setProjectsOverviewOpen,
   ] = useState(false);
 
-  /*
-   * Individual project case study.
-   */
   const [
     selectedProjectId,
     setSelectedProjectId,
@@ -129,9 +125,6 @@ export default function HeroScene({
       null,
     );
 
-  /*
-   * Full-screen About or Credits content.
-   */
   const [
     selectedSectionDetail,
     setSelectedSectionDetail,
@@ -148,6 +141,39 @@ export default function HeroScene({
     returning: false,
   });
 
+  /*
+   * A reversible modal remains mounted
+   * while it is stored above the screen.
+   *
+   * true means:
+   * the homepage is fully visible and
+   * should behave normally.
+   */
+  const [
+    modalRevealReleased,
+    setModalRevealReleased,
+  ] = useState(false);
+
+  /*
+   * Used only when the user is back on the 3D home
+   * and clicks the SAME retained modal in the top nav.
+   *
+   * Incrementing the matching generation changes the
+   * component key, causing a clean remount. That lets
+   * the modal reuse its original first-open Framer
+   * Motion transition without adding animation state
+   * inside the modal itself.
+   */
+  const [
+    projectsModalOpenGeneration,
+    setProjectsModalOpenGeneration,
+  ] = useState(0);
+
+  const [
+    sectionModalOpenGeneration,
+    setSectionModalOpenGeneration,
+  ] = useState(0);
+
   const autoCardStackRef =
     useRef<AutoCardStackHandle | null>(
       null,
@@ -156,11 +182,7 @@ export default function HeroScene({
   const isMobile =
     viewportWidth < 768;
 
-  /*
-   * Pause scene interaction while full-screen content
-   * is open.
-   */
-  const interactionPaused =
+  const modalContentOpen =
     projectsOverviewOpen ||
     selectedProjectId !==
       null ||
@@ -168,8 +190,15 @@ export default function HeroScene({
       null;
 
   /*
-   * Keep the scene responsive.
+   * Visible modal = paused.
+   *
+   * Hidden/released reversible modal =
+   * homepage fully interactive.
    */
+  const interactionPaused =
+    modalContentOpen &&
+    !modalRevealReleased;
+
   useEffect(() => {
     const handleResize = () => {
       setViewportWidth(
@@ -191,13 +220,22 @@ export default function HeroScene({
   }, []);
 
   /*
-   * Reset the card traversal when the entrance camera
-   * animation begins.
+   * Reset everything for the original
+   * page entrance animation.
    */
   useEffect(() => {
     const handleIntro = () => {
-      setActiveId(null);
-      setCardStack([]);
+      setActiveId(
+        null,
+      );
+
+      setCardStack(
+        [],
+      );
+
+      setModalRevealReleased(
+        false,
+      );
 
       setFocusState({
         focused: false,
@@ -219,13 +257,8 @@ export default function HeroScene({
   }, []);
 
   /*
-   * Listen for the clicked-hotspot camera state.
-   *
-   * focused:
-   * The camera is inside a hotspot close-up.
-   *
-   * returning:
-   * The camera is moving back to the main view.
+   * Listen for clicked-hotspot
+   * camera state.
    */
   useEffect(() => {
     const handleFocusState = (
@@ -264,42 +297,70 @@ export default function HeroScene({
   }, []);
 
   /*
-   * Build the card stack from the actual order in which
-   * the building sides are visited.
+   * Listen for the reversible modal.
    *
-   * Left to right:
+   * true:
+   * modal is stored above viewport,
+   * homepage is fully interactive.
    *
-   * [Projects]
-   * [Projects, Credits]
-   * [Projects, Credits, About]
-   *
-   * Right to left:
-   *
-   * [About]
-   * [About, Credits]
-   * [About, Credits, Projects]
-   *
-   * Detecting a card already inside the stack removes
-   * every card above it.
+   * false:
+   * modal is visible / returning,
+   * homepage is paused again.
+   */
+  useEffect(() => {
+    const handleModalRevealState = (
+      event: Event,
+    ) => {
+      const customEvent =
+        event as CustomEvent<{
+          released?: boolean;
+        }>;
+
+      setModalRevealReleased(
+        Boolean(
+          customEvent.detail
+            ?.released,
+        ),
+      );
+    };
+
+    window.addEventListener(
+      MODAL_REVEAL_STATE_EVENT,
+      handleModalRevealState,
+    );
+
+    return () => {
+      window.removeEventListener(
+        MODAL_REVEAL_STATE_EVENT,
+        handleModalRevealState,
+      );
+    };
+  }, []);
+
+  /*
+   * Build the automatic popup-card
+   * stack from visited hotspots.
    */
   const handleDetectedHotspot =
     useCallback(
       ({
         id,
       }: DetectedHotspot) => {
-        setActiveId(id);
+        setActiveId(
+          id,
+        );
 
         setCardStack(
-          (currentStack) => {
-            /*
-             * The first detected section becomes the
-             * bottom card.
-             */
+          (
+            currentStack,
+          ) => {
             if (
               currentStack.length ===
               0
             ) {
-              return [id];
+              return [
+                id,
+              ];
             }
 
             const currentTop =
@@ -308,36 +369,29 @@ export default function HeroScene({
                   1
               ];
 
-            /*
-             * Do not add the active card twice.
-             */
             if (
-              currentTop === id
+              currentTop ===
+              id
             ) {
               return currentStack;
             }
 
-            /*
-             * Returning to an existing card means the
-             * camera rotated backward.
-             */
             const existingIndex =
               currentStack.lastIndexOf(
                 id,
               );
 
             if (
-              existingIndex !== -1
+              existingIndex !==
+              -1
             ) {
               return currentStack.slice(
                 0,
-                existingIndex + 1,
+                existingIndex +
+                  1,
               );
             }
 
-            /*
-             * Add a newly visited side on top.
-             */
             return [
               ...currentStack,
               id,
@@ -350,10 +404,6 @@ export default function HeroScene({
       [],
     );
 
-  /*
-   * Update the dotted connector without causing a React
-   * render on every Three.js animation frame.
-   */
   const updateHotspotProjection =
     useCallback(
       (
@@ -372,12 +422,17 @@ export default function HeroScene({
     useMemo(
       () =>
         cardStack
-          .map((id) =>
-            SECTIONS.find(
-              (section) =>
-                section.id ===
-                id,
-            ),
+          .map(
+            (
+              id,
+            ) =>
+              SECTIONS.find(
+                (
+                  section,
+                ) =>
+                  section.id ===
+                  id,
+              ),
           )
           .filter(
             (
@@ -386,17 +441,144 @@ export default function HeroScene({
               section !==
               undefined,
           ),
-      [cardStack],
+      [
+        cardStack,
+      ],
     );
 
   /*
-   * Open an individual project case study.
+   * Remove every modal state.
+   *
+   * Used before switching from a
+   * released/stored modal to another
+   * page or case study.
    */
+  const closeAllModalContent =
+    useCallback(() => {
+      setProjectsOverviewOpen(
+        false,
+      );
+
+      setSelectedProjectId(
+        null,
+      );
+
+      setSelectedSectionDetail(
+        null,
+      );
+    }, []);
+
+  /*
+   * Smoothly replace a modal that is
+   * currently stored above the viewport.
+   */
+  const openReplacingReleasedModal =
+    useCallback(
+      (
+        openNext:
+          () => void,
+      ) => {
+        if (
+          !modalRevealReleased
+        ) {
+          openNext();
+
+          return;
+        }
+
+        setModalRevealReleased(
+          false,
+        );
+
+        closeAllModalContent();
+
+        window.requestAnimationFrame(
+          () => {
+            openNext();
+          },
+        );
+      },
+      [
+        closeAllModalContent,
+        modalRevealReleased,
+      ],
+    );
+
   const handleProjectSelect =
     useCallback(
       (
         id: ProjectId,
       ) => {
+        openReplacingReleasedModal(
+          () => {
+            setProjectsOverviewOpen(
+              false,
+            );
+
+            setSelectedSectionDetail(
+              null,
+            );
+
+            setSelectedProjectId(
+              id,
+            );
+          },
+        );
+      },
+      [
+        openReplacingReleasedModal,
+      ],
+    );
+
+  const handleOpenSectionDetail =
+    useCallback(
+      (
+        id:
+          SectionDetailId,
+      ) => {
+        openReplacingReleasedModal(
+          () => {
+            setProjectsOverviewOpen(
+              false,
+            );
+
+            setSelectedProjectId(
+              null,
+            );
+
+            setSelectedSectionDetail(
+              id,
+            );
+          },
+        );
+      },
+      [
+        openReplacingReleasedModal,
+      ],
+    );
+
+  /*
+   * Selecting a project from the visible
+   * Projects overview switches directly
+   * to its case study.
+   */
+  const handleOverviewProjectSelect =
+    useCallback(
+      (
+        id: ProjectId,
+      ) => {
+        setModalRevealReleased(
+          false,
+        );
+
+        setProjectsOverviewOpen(
+          false,
+        );
+
+        setSelectedSectionDetail(
+          null,
+        );
+
         setSelectedProjectId(
           id,
         );
@@ -405,33 +587,14 @@ export default function HeroScene({
     );
 
   /*
-   * Open About or Credits from a card's More button.
-   */
-  const handleOpenSectionDetail =
-    useCallback(
-      (
-        id: SectionDetailId,
-      ) => {
-        setSelectedSectionDetail(
-          id,
-        );
-      },
-      [],
-    );
-
-  /*
-   * The top navigation is independent from hotspot
-   * detection.
+   * Top-right Projects / Credits /
+   * About Me navigation.
    *
-   * It does not:
+   * Released modal:
+   * works normally and replaces it.
    *
-   * - change activeId,
-   * - move the camera,
-   * - modify the card stack,
-   * - highlight based on a hotspot,
-   * - select a numbered marker.
-   *
-   * It opens full-screen content directly.
+   * Visible modal:
+   * stays disabled.
    */
   const handleShortcutSelect =
     useCallback(
@@ -444,32 +607,130 @@ export default function HeroScene({
           return;
         }
 
+        /*
+         * SAME RELEASED MODAL:
+         *
+         * Do not close + reopen the exact same
+         * React state. The current modal is still
+         * mounted above Home and its reveal hook
+         * owns hidden/inert DOM state.
+         *
+         * Reusing the same "projects" / "about" /
+         * "credits" value can race with React's
+         * batched close/open updates and leave the
+         * retained modal hidden while the scene
+         * briefly pauses.
+         *
+         * Restore the already-mounted modal instead.
+         */
+        const sameReleasedModal =
+          modalRevealReleased &&
+          (
+            (
+              id ===
+                "projects" &&
+              projectsOverviewOpen
+            ) ||
+            (
+              (
+                id ===
+                  "about" ||
+                id ===
+                  "credits"
+              ) &&
+              selectedSectionDetail ===
+                id
+            )
+          );
+
         if (
-          id ===
-          "projects"
+          sameReleasedModal
         ) {
-          setProjectsOverviewOpen(
-            true,
+          /*
+           * The retained modal is currently hidden above
+           * the 3D scene. Clicking its own nav item should
+           * feel exactly like a fresh open, not like a
+           * reverse-scroll restore.
+           *
+           * First give interaction ownership back to the
+           * modal, then remount only that modal component.
+           * Its EXISTING initial -> animate transition
+           * will run naturally from the beginning.
+           */
+          setModalRevealReleased(
+            false,
+          );
+
+          if (
+            id === "projects"
+          ) {
+            setProjectsModalOpenGeneration(
+              (generation) =>
+                generation + 1,
+            );
+
+            return;
+          }
+
+          setSectionModalOpenGeneration(
+            (generation) =>
+              generation + 1,
           );
 
           return;
         }
 
-        setSelectedSectionDetail(
-          id,
+        openReplacingReleasedModal(
+          () => {
+            if (
+              id ===
+              "projects"
+            ) {
+              setSelectedProjectId(
+                null,
+              );
+
+              setSelectedSectionDetail(
+                null,
+              );
+
+              setProjectsOverviewOpen(
+                true,
+              );
+
+              return;
+            }
+
+            if (
+              id ===
+                "about" ||
+              id ===
+                "credits"
+            ) {
+              setProjectsOverviewOpen(
+                false,
+              );
+
+              setSelectedProjectId(
+                null,
+              );
+
+              setSelectedSectionDetail(
+                id,
+              );
+            }
+          },
         );
       },
       [
         interactionPaused,
+        modalRevealReleased,
+        openReplacingReleasedModal,
+        projectsOverviewOpen,
+        selectedSectionDetail,
       ],
     );
 
-  /*
-   * Begin returning from a clicked hotspot.
-   *
-   * The Home button disappears immediately through its
-   * AnimatePresence exit animation.
-   */
   const handleReturnHome =
     useCallback(() => {
       if (
@@ -487,14 +748,53 @@ export default function HeroScene({
       focusState.returning,
     ]);
 
+  const closeProjectsOverview =
+    useCallback(() => {
+      setModalRevealReleased(
+        false,
+      );
+
+      setProjectsOverviewOpen(
+        false,
+      );
+    }, []);
+
+  const closeSectionDetail =
+    useCallback(() => {
+      setModalRevealReleased(
+        false,
+      );
+
+      setSelectedSectionDetail(
+        null,
+      );
+    }, []);
+
+  const closeProjectCaseStudy =
+    useCallback(() => {
+      setModalRevealReleased(
+        false,
+      );
+
+      setSelectedProjectId(
+        null,
+      );
+    }, []);
+
   return (
     <section className="adventure-scene-shell">
       <Canvas
         shadows
         dpr={
           isMobile
-            ? [1, 1.4]
-            : [1, 1.85]
+            ? [
+                1,
+                1.4,
+              ]
+            : [
+                1,
+                1.85,
+              ]
         }
         camera={{
           position:
@@ -507,12 +807,18 @@ export default function HeroScene({
               ? 43
               : 36,
 
-          near: 0.1,
-          far: 300,
+          near:
+            0.1,
+
+          far:
+            300,
         }}
         gl={{
-          antialias: false,
-          alpha: false,
+          antialias:
+            false,
+
+          alpha:
+            false,
 
           powerPreference:
             "high-performance",
@@ -535,14 +841,21 @@ export default function HeroScene({
           );
         }}
         style={{
-          position: "relative",
+          position:
+            "relative",
 
-          zIndex: 2,
+          zIndex:
+            2,
 
-          touchAction: "none",
+          touchAction:
+            "none",
         }}
       >
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            null
+          }
+        >
           <AdventureSceneContent
             viewportWidth={
               viewportWidth
@@ -584,12 +897,6 @@ export default function HeroScene({
         </Suspense>
       </Canvas>
 
-      {/*
-       * Standalone shortcut navigation.
-       *
-       * It receives no activeId, so hotspot detection
-       * cannot highlight any navigation item.
-       */}
       <SceneShortcutNav
         disabled={
           interactionPaused
@@ -599,33 +906,44 @@ export default function HeroScene({
         }
       />
 
-      <AutoCardStack
-        ref={
-          autoCardStackRef
-        }
-        sections={
-          stackedSections
-        }
-        activeId={
-          activeId
-        }
-        onProjectSelect={
-          handleProjectSelect
-        }
-        onOpenSectionDetail={
-          handleOpenSectionDetail
-        }
-      />
-
       {/*
-       * The fixed slot controls the screen position.
+       * IMPORTANT EMPTY-CARD FIX:
        *
-       * The motion button can slide down without breaking
-       * horizontal centering.
+       * Never render the stack when no
+       * actual hotspot/card is available.
+       *
+       * Previously the empty stack shell
+       * could remain visible after a modal
+       * reveal while activeId was null.
        */}
+      {!interactionPaused &&
+        activeId !== null &&
+        stackedSections.length >
+          0 && (
+          <AutoCardStack
+            ref={
+              autoCardStackRef
+            }
+            sections={
+              stackedSections
+            }
+            activeId={
+              activeId
+            }
+            onProjectSelect={
+              handleProjectSelect
+            }
+            onOpenSectionDetail={
+              handleOpenSectionDetail
+            }
+          />
+        )}
+
       <div className="adventure-home-button-slot">
         <AnimatePresence
-          initial={false}
+          initial={
+            false
+          }
         >
           {focusState.focused &&
             !focusState.returning && (
@@ -638,38 +956,58 @@ export default function HeroScene({
                 }
                 aria-label="Return to the full model view"
                 initial={{
-                  opacity: 0,
-                  y: 38,
-                  scale: 0.92,
+                  opacity:
+                    0,
+
+                  y:
+                    38,
+
+                  scale:
+                    0.92,
 
                   filter:
                     "blur(7px)",
                 }}
                 animate={{
-                  opacity: 1,
-                  y: 0,
-                  scale: 1,
+                  opacity:
+                    1,
+
+                  y:
+                    0,
+
+                  scale:
+                    1,
 
                   filter:
                     "blur(0px)",
                 }}
                 exit={{
-                  opacity: 0,
-                  y: 82,
-                  scale: 0.9,
+                  opacity:
+                    0,
+
+                  y:
+                    82,
+
+                  scale:
+                    0.9,
 
                   filter:
                     "blur(8px)",
                 }}
                 whileHover={{
-                  y: -3,
-                  scale: 1.045,
+                  y:
+                    -3,
+
+                  scale:
+                    1.045,
                 }}
                 whileTap={{
-                  scale: 0.94,
+                  scale:
+                    0.94,
                 }}
                 transition={{
-                  duration: 0.3,
+                  duration:
+                    0.3,
 
                   ease: [
                     0.22,
@@ -679,10 +1017,6 @@ export default function HeroScene({
                   ],
                 }}
               >
-                {/*
-                 * The large X is drawn with CSS rather
-                 * than using a font character.
-                 */}
                 <span
                   className="adventure-home-button__icon"
                   aria-hidden="true"
@@ -696,134 +1030,138 @@ export default function HeroScene({
         </AnimatePresence>
       </div>
 
-      {/*
-       * Full-screen Projects overview opened from the
-       * standalone navigation.
-       */}
       <ProjectsOverviewModal
+        key={`projects-overview-${projectsModalOpenGeneration}`}
         open={
           projectsOverviewOpen
         }
-        onClose={() => {
-          setProjectsOverviewOpen(
-            false,
-          );
-        }}
-        onProjectSelect={(
-          id,
-        ) => {
-          setProjectsOverviewOpen(
-            false,
-          );
-
-          setSelectedProjectId(
-            id,
-          );
-        }}
+        onClose={
+          closeProjectsOverview
+        }
+        onProjectSelect={
+          handleOverviewProjectSelect
+        }
       />
 
-      {/*
-       * Full-screen About or Credits content.
-       */}
       <SectionDetailModal
+        key={`section-detail-${sectionModalOpenGeneration}`}
         detailId={
           selectedSectionDetail
         }
-        onClose={() => {
-          setSelectedSectionDetail(
-            null,
-          );
-        }}
+        onClose={
+          closeSectionDetail
+        }
       />
 
-      {/*
-       * Individual full-screen project case study.
-       */}
       <ProjectCaseStudyModal
         projectId={
           selectedProjectId
         }
-        onClose={() => {
-          setSelectedProjectId(
-            null,
-          );
-        }}
+        onClose={
+          closeProjectCaseStudy
+        }
       />
 
       <style jsx global>{`
         .adventure-scene-shell {
-          position: relative;
+          position:
+            relative;
 
-          width: 100%;
-          height: 100vh;
-          height: 100dvh;
-          min-height: 520px;
+          width:
+            100%;
 
-          overflow: hidden;
+          height:
+            100vh;
 
-          background: #000000;
+          height:
+            100dvh;
 
-          isolation: isolate;
+          min-height:
+            520px;
+
+          overflow:
+            hidden;
+
+          background:
+            #000000;
+
+          isolation:
+            isolate;
         }
 
         .adventure-scene-shell
           canvas {
-          display: block;
+          display:
+            block;
         }
 
-        /*
-         * AutoCardStack replaces the previous mobile
-         * annotation layer and bottom navigation.
-         */
         .adventure-mobile-annotation-layer,
         .adventure-bottom-nav {
-          display: none !important;
+          display:
+            none !important;
         }
 
-        /*
-         * Fixed Home-button location.
-         */
         .adventure-home-button-slot {
-          position: absolute;
+          position:
+            absolute;
 
-          right: 0;
+          right:
+            0;
 
-          bottom: max(
-            28px,
-            calc(
-              18px +
-                env(
-                  safe-area-inset-bottom
-                )
-            )
-          );
+          bottom:
+            max(
+              28px,
+              calc(
+                18px +
+                  env(
+                    safe-area-inset-bottom
+                  )
+              )
+            );
 
-          left: 0;
+          left:
+            0;
 
-          z-index: 90;
+          z-index:
+            90;
 
-          display: flex;
+          display:
+            flex;
 
-          align-items: center;
-          justify-content: center;
+          align-items:
+            center;
 
-          pointer-events: none;
+          justify-content:
+            center;
+
+          pointer-events:
+            none;
         }
 
         .adventure-home-button {
-          position: relative;
+          position:
+            relative;
 
-          display: inline-flex;
+          display:
+            inline-flex;
 
-          min-width: 150px;
-          min-height: 56px;
+          min-width:
+            150px;
 
-          align-items: center;
-          justify-content: center;
+          min-height:
+            56px;
 
-          gap: 10px;
+          align-items:
+            center;
 
-          overflow: hidden;
+          justify-content:
+            center;
+
+          gap:
+            10px;
+
+          overflow:
+            hidden;
 
           border:
             1px solid
@@ -834,8 +1172,11 @@ export default function HeroScene({
               0.46
             );
 
-          border-radius: 999px;
-          outline: none;
+          border-radius:
+            999px;
+
+          outline:
+            none;
 
           background:
             linear-gradient(
@@ -855,7 +1196,8 @@ export default function HeroScene({
             );
 
           box-shadow:
-            0 0 0 1px
+            0 0 0
+              1px
               rgba(
                 255,
                 255,
@@ -863,14 +1205,16 @@ export default function HeroScene({
                 0.045
               )
               inset,
-            0 0 26px
+            0 0
+              26px
               rgba(
                 255,
                 75,
                 174,
                 0.21
               ),
-            0 17px 43px
+            0 17px
+              43px
               rgba(
                 0,
                 0,
@@ -882,93 +1226,128 @@ export default function HeroScene({
             0 22px
             0 17px;
 
-          color: #ffe8f7;
+          color:
+            #ffe8f7;
 
-          cursor: pointer;
+          cursor:
+            pointer;
 
           font-family:
-            var(--font-body),
+            var(
+              --font-body
+            ),
             Arial,
             sans-serif;
 
-          font-size: 11px;
-          font-weight: 900;
-          letter-spacing: 0.11em;
+          font-size:
+            11px;
 
-          text-transform: uppercase;
+          font-weight:
+            900;
 
-          pointer-events: auto;
+          letter-spacing:
+            0.11em;
+
+          text-transform:
+            uppercase;
+
+          pointer-events:
+            auto;
 
           transition:
-            color 180ms ease,
-            border-color 180ms ease,
-            background 200ms ease,
-            box-shadow 200ms ease;
+            color
+              180ms
+              ease,
+            border-color
+              180ms
+              ease,
+            background
+              200ms
+              ease,
+            box-shadow
+              200ms
+              ease;
         }
 
-        /*
-         * Glossy highlight that moves across the button
-         * during hover.
-         */
         .adventure-home-button::before {
-          content: "";
+          content:
+            "";
 
-          position: absolute;
+          position:
+            absolute;
 
-          inset: 0;
+          inset:
+            0;
 
           background:
             linear-gradient(
               120deg,
-              transparent 16%,
+              transparent
+                16%,
               rgba(
                 255,
                 255,
                 255,
                 0.13
-              ) 48%,
-              transparent 78%
+              )
+                48%,
+              transparent
+                78%
             );
 
-          opacity: 0;
+          opacity:
+            0;
 
           transform:
-            translateX(-70%);
+            translateX(
+              -70%
+            );
 
           transition:
-            opacity 180ms ease,
-            transform 380ms ease;
+            opacity
+              180ms
+              ease,
+            transform
+              380ms
+              ease;
 
-          pointer-events: none;
+          pointer-events:
+            none;
         }
 
-        /*
-         * Sakura glow inside the button.
-         */
         .adventure-home-button::after {
-          content: "";
+          content:
+            "";
 
-          position: absolute;
+          position:
+            absolute;
 
-          inset: 6px;
+          inset:
+            6px;
 
-          border-radius: inherit;
+          border-radius:
+            inherit;
 
           background:
             radial-gradient(
-              circle at 50% 100%,
+              circle at
+                50%
+                100%,
               rgba(
                 255,
                 74,
                 169,
                 0.27
               ),
-              transparent 68%
+              transparent
+                68%
             );
 
-          opacity: 0.62;
+          opacity:
+            0.62;
 
-          pointer-events: none;
+          pointer-events:
+            none;
         }
 
         .adventure-home-button:hover {
@@ -987,10 +1366,12 @@ export default function HeroScene({
               #ff4fa9
             );
 
-          color: #ffffff;
+          color:
+            #ffffff;
 
           box-shadow:
-            0 0 0 1px
+            0 0 0
+              1px
               rgba(
                 255,
                 255,
@@ -998,14 +1379,16 @@ export default function HeroScene({
                 0.14
               )
               inset,
-            0 0 38px
+            0 0
+              38px
               rgba(
                 255,
                 75,
                 174,
                 0.54
               ),
-            0 20px 48px
+            0 20px
+              48px
               rgba(
                 0,
                 0,
@@ -1015,10 +1398,13 @@ export default function HeroScene({
         }
 
         .adventure-home-button:hover::before {
-          opacity: 1;
+          opacity:
+            1;
 
           transform:
-            translateX(70%);
+            translateX(
+              70%
+            );
         }
 
         .adventure-home-button:focus-visible {
@@ -1026,33 +1412,37 @@ export default function HeroScene({
             3px solid
             #69dfff;
 
-          outline-offset: 4px;
+          outline-offset:
+            4px;
         }
 
-        /*
-         * Large reference-style X.
-         *
-         * It is drawn with two lines so its size and
-         * thickness do not depend on the selected font.
-         */
         .adventure-home-button__icon,
         .adventure-home-button__label {
-          position: relative;
+          position:
+            relative;
 
-          z-index: 2;
+          z-index:
+            2;
         }
 
         .adventure-home-button__icon {
-          display: block;
+          display:
+            block;
 
-          width: 32px;
-          height: 32px;
+          width:
+            32px;
 
-          flex: 0 0 32px;
+          height:
+            32px;
+
+          flex:
+            0 0
+            32px;
 
           filter:
             drop-shadow(
-              0 0 8px
+              0 0
+                8px
                 rgba(
                   255,
                   104,
@@ -1062,33 +1452,56 @@ export default function HeroScene({
             );
 
           transition:
-            filter 180ms ease,
-            transform 220ms ease;
+            filter
+              180ms
+              ease,
+            transform
+              220ms
+              ease;
         }
 
         .adventure-home-button__icon::before,
         .adventure-home-button__icon::after {
-          content: "";
+          content:
+            "";
 
-          position: absolute;
+          position:
+            absolute;
 
-          top: 50%;
-          left: 50%;
+          top:
+            50%;
 
-          width: 26px;
-          height: 2px;
+          left:
+            50%;
 
-          border-radius: 999px;
+          width:
+            26px;
 
-          background: #ff8acb;
+          height:
+            2px;
 
-          transform-origin: center;
+          border-radius:
+            999px;
+
+          background:
+            #ff8acb;
+
+          transform-origin:
+            center;
 
           transition:
-            width 180ms ease,
-            height 180ms ease,
-            background 180ms ease,
-            box-shadow 180ms ease;
+            width
+              180ms
+              ease,
+            height
+              180ms
+              ease,
+            background
+              180ms
+              ease,
+            box-shadow
+              180ms
+              ease;
         }
 
         .adventure-home-button__icon::before {
@@ -1097,7 +1510,9 @@ export default function HeroScene({
               -50%,
               -50%
             )
-            rotate(45deg);
+            rotate(
+              45deg
+            );
         }
 
         .adventure-home-button__icon::after {
@@ -1106,14 +1521,17 @@ export default function HeroScene({
               -50%,
               -50%
             )
-            rotate(-45deg);
+            rotate(
+              -45deg
+            );
         }
 
         .adventure-home-button:hover
           .adventure-home-button__icon {
           filter:
             drop-shadow(
-              0 0 11px
+              0 0
+                11px
                 rgba(
                   255,
                   255,
@@ -1123,21 +1541,30 @@ export default function HeroScene({
             );
 
           transform:
-            rotate(90deg)
-            scale(1.08);
+            rotate(
+              90deg
+            )
+            scale(
+              1.08
+            );
         }
 
         .adventure-home-button:hover
           .adventure-home-button__icon::before,
         .adventure-home-button:hover
           .adventure-home-button__icon::after {
-          width: 28px;
-          height: 2.5px;
+          width:
+            28px;
 
-          background: #ffffff;
+          height:
+            2.5px;
+
+          background:
+            #ffffff;
 
           box-shadow:
-            0 0 8px
+            0 0
+              8px
               rgba(
                 255,
                 255,
@@ -1147,56 +1574,70 @@ export default function HeroScene({
         }
 
         .adventure-home-button__label {
-          line-height: 1;
+          line-height:
+            1;
         }
 
         @media (
-          max-width: 767px
+          max-width:
+            767px
         ) {
           .adventure-scene-shell {
-            min-height: 100dvh;
+            min-height:
+              100dvh;
           }
 
           .adventure-home-button-slot {
-            bottom: max(
-              16px,
-              calc(
-                12px +
-                  env(
-                    safe-area-inset-bottom
-                  )
-              )
-            );
+            bottom:
+              max(
+                16px,
+                calc(
+                  12px +
+                    env(
+                      safe-area-inset-bottom
+                    )
+                )
+              );
           }
 
           .adventure-home-button {
-            min-width: 136px;
-            min-height: 50px;
+            min-width:
+              136px;
+
+            min-height:
+              50px;
 
             padding:
               0 18px
               0 14px;
 
-            font-size: 10px;
+            font-size:
+              10px;
           }
 
           .adventure-home-button__icon {
-            width: 29px;
-            height: 29px;
+            width:
+              29px;
 
-            flex-basis: 29px;
+            height:
+              29px;
+
+            flex-basis:
+              29px;
           }
 
           .adventure-home-button__icon::before,
           .adventure-home-button__icon::after {
-            width: 23px;
+            width:
+              23px;
           }
 
           .adventure-home-button:hover
             .adventure-home-button__icon::before,
           .adventure-home-button:hover
             .adventure-home-button__icon::after {
-            width: 25px;
+            width:
+              25px;
           }
         }
 

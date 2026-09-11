@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -26,9 +27,13 @@ import SceneReturnButton from "./SceneReturnButton";
 
 import ScrollToTopButton from "@/components/ScrollToTopButton";
 
+import useModalHomeReveal from "./useModalHomeReveal";
+
 type ProjectsOverviewModalProps = {
   open: boolean;
+
   onClose: () => void;
+
   onProjectSelect: (
     id: ProjectId,
   ) => void;
@@ -82,7 +87,9 @@ function getProjectFilterIds(
     .toLowerCase();
 
   const filters =
-    new Set<ProjectFilterId>(["all"]);
+    new Set<ProjectFilterId>([
+      "all",
+    ]);
 
   if (
     searchableText.includes(
@@ -98,7 +105,9 @@ function getProjectFilterIds(
       "autonomous",
     )
   ) {
-    filters.add("embedded");
+    filters.add(
+      "embedded",
+    );
   }
 
   if (
@@ -121,7 +130,9 @@ function getProjectFilterIds(
       "stripe",
     )
   ) {
-    filters.add("ecommerce");
+    filters.add(
+      "ecommerce",
+    );
   }
 
   if (
@@ -135,7 +146,9 @@ function getProjectFilterIds(
       "php",
     )
   ) {
-    filters.add("wordpress");
+    filters.add(
+      "wordpress",
+    );
   }
 
   if (
@@ -155,7 +168,9 @@ function getProjectFilterIds(
       "express",
     )
   ) {
-    filters.add("backend");
+    filters.add(
+      "backend",
+    );
   }
 
   if (
@@ -178,10 +193,14 @@ function getProjectFilterIds(
       "node.js",
     )
   ) {
-    filters.add("fullstack");
+    filters.add(
+      "fullstack",
+    );
   }
 
-  return Array.from(filters);
+  return Array.from(
+    filters,
+  );
 }
 
 export default function ProjectsOverviewModal({
@@ -198,6 +217,29 @@ export default function ProjectsOverviewModal({
     );
 
   const scrollRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    );
+
+  const revealRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    );
+
+  const backdropRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    );
+
+  /*
+   * This entire layer moves upward
+   * during the homepage reveal.
+   *
+   * The ScrollToTopButton also lives
+   * inside this layer, so it leaves the
+   * screen together with the modal.
+   */
+  const liftLayerRef =
     useRef<HTMLDivElement | null>(
       null,
     );
@@ -220,19 +262,74 @@ export default function ProjectsOverviewModal({
 
   const filteredProjects =
     useMemo(() => {
-      if (activeFilter === "all") {
+      if (
+        activeFilter ===
+        "all"
+      ) {
         return projects;
       }
 
-      return projects.filter((project) =>
-        getProjectFilterIds(
+      return projects.filter(
+        (
           project,
-        ).includes(activeFilter),
+        ) =>
+          getProjectFilterIds(
+            project,
+          ).includes(
+            activeFilter,
+          ),
       );
     }, [
       activeFilter,
       projects,
     ]);
+
+  const handleHomeRevealComplete =
+    useCallback(() => {
+      /*
+       * Close Projects so the scene
+       * stops being interactionPaused.
+       */
+      onClose();
+
+      /*
+       * Wait for the state change to
+       * commit before restoring the
+       * normal Three.js orbit.
+       */
+      window.requestAnimationFrame(
+        () => {
+          window.requestAnimationFrame(
+            () => {
+              window.dispatchEvent(
+                new CustomEvent(
+                  "adventure:return-home",
+                ),
+              );
+            },
+          );
+        },
+      );
+    }, [
+      onClose,
+    ]);
+
+  useModalHomeReveal({
+    active: open,
+
+    scrollRef,
+
+    revealRef,
+
+    liftRef:
+      liftLayerRef,
+
+    releaseRef:
+      backdropRef,
+
+    onComplete:
+      handleHomeRevealComplete,
+  });
 
   useEffect(() => {
     if (!open) {
@@ -248,7 +345,10 @@ export default function ProjectsOverviewModal({
     const handleKeyDown = (
       event: KeyboardEvent,
     ) => {
-      if (event.key === "Escape") {
+      if (
+        event.key ===
+        "Escape"
+      ) {
         onClose();
       }
     };
@@ -276,34 +376,36 @@ export default function ProjectsOverviewModal({
         focusTimer,
       );
     };
-  }, [onClose, open]);
+  }, [
+    onClose,
+    open,
+  ]);
 
   useEffect(() => {
     if (!open) {
-      setActiveFilter("all");
+      setActiveFilter(
+        "all",
+      );
     }
-  }, [open]);
+  }, [
+    open,
+  ]);
 
   return (
     <AnimatePresence mode="wait">
       {open && (
         <motion.div
+          ref={backdropRef}
           className="adventure-project-index-backdrop"
           role="presentation"
           initial={{
             opacity: 0,
-            backdropFilter:
-              "blur(0px)",
           }}
           animate={{
             opacity: 1,
-            backdropFilter:
-              "blur(16px)",
           }}
           exit={{
             opacity: 0,
-            backdropFilter:
-              "blur(0px)",
           }}
           transition={{
             duration: reduceMotion
@@ -312,519 +414,822 @@ export default function ProjectsOverviewModal({
           }}
           onClick={onClose}
         >
-          <motion.article
-            className="adventure-project-index-modal adventure-project-index-modal--archive"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="adventure-project-index-title"
-            initial={
-              reduceMotion
-                ? {
-                    opacity: 0,
-                  }
-                : {
-                    opacity: 0,
-                    scale: 0.95,
-                    y: 42,
-                    borderRadius: 36,
-                    clipPath:
-                      "inset(6% 6% 6% 6% round 36px)",
-                  }
-            }
-            animate={{
-              opacity: 1,
-              scale: 1,
-              y: 0,
-              borderRadius: 0,
-              clipPath:
-                "inset(0% 0% 0% 0% round 0px)",
-            }}
-            exit={
-              reduceMotion
-                ? {
-                    opacity: 0,
-                  }
-                : {
-                    opacity: 0,
-                    scale: 0.95,
-                    y: 34,
-                    borderRadius: 36,
-                    clipPath:
-                      "inset(6% 6% 6% 6% round 36px)",
-                  }
-            }
-            transition={
-              reduceMotion
-                ? {
-                    duration: 0.12,
-                  }
-                : {
-                    opacity: {
-                      duration: 0.25,
-                    },
-                    scale: {
-                      type: "spring",
-                      stiffness: 230,
-                      damping: 28,
-                      mass: 0.9,
-                    },
-                    y: {
-                      type: "spring",
-                      stiffness: 230,
-                      damping: 28,
-                      mass: 0.9,
-                    },
-                    borderRadius: {
-                      duration: 0.55,
-                      ease: [
-                        0.22,
-                        1,
-                        0.36,
-                        1,
-                      ],
-                    },
-                    clipPath: {
-                      duration: 0.62,
-                      ease: [
-                        0.22,
-                        1,
-                        0.36,
-                        1,
-                      ],
-                    },
-                  }
-            }
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
+          {/*
+           * The modal AND pink jump button
+           * are both inside this wrapper.
+           * They therefore move upward together.
+           */}
+          <div
+            ref={liftLayerRef}
+            className="adventure-modal-lift-layer"
           >
-            <SceneReturnButton
-              buttonRef={
-                returnButtonRef
-              }
-              onClick={onClose}
-              ariaLabel="Return to the 3D model from Projects"
-            />
-
-            <motion.div
-            ref={scrollRef}
-              className="adventure-project-index-body"
+            <motion.article
+              className="adventure-project-index-modal adventure-project-index-modal--archive"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="adventure-project-index-title"
               initial={
                 reduceMotion
                   ? {
-                      opacity: 0,
+                      opacity:
+                        0,
                     }
                   : {
-                      opacity: 0,
-                      y: 22,
+                      opacity:
+                        0,
+
+                      scale:
+                        0.95,
+
+                      y: 42,
+
+                      borderRadius:
+                        36,
+
+                      clipPath:
+                        "inset(6% 6% 6% 6% round 36px)",
                     }
               }
               animate={{
                 opacity: 1,
+                scale: 1,
                 y: 0,
+
+                borderRadius:
+                  0,
+
+                clipPath:
+                  "inset(0% 0% 0% 0% round 0px)",
               }}
-              exit={{
-                opacity: 0,
-                y: 12,
-              }}
-              transition={{
-                duration: reduceMotion
-                  ? 0.12
-                  : 0.48,
-                delay: reduceMotion
-                  ? 0
-                  : 0.16,
-                ease: [
-                  0.22,
-                  1,
-                  0.36,
-                  1,
-                ],
+              exit={
+                reduceMotion
+                  ? {
+                      opacity:
+                        0,
+                    }
+                  : {
+                      opacity:
+                        0,
+
+                      scale:
+                        0.95,
+
+                      y: 34,
+
+                      borderRadius:
+                        36,
+
+                      clipPath:
+                        "inset(6% 6% 6% 6% round 36px)",
+                    }
+              }
+              transition={
+                reduceMotion
+                  ? {
+                      duration:
+                        0.12,
+                    }
+                  : {
+                      opacity: {
+                        duration:
+                          0.25,
+                      },
+
+                      scale: {
+                        type:
+                          "spring",
+
+                        stiffness:
+                          230,
+
+                        damping:
+                          28,
+
+                        mass:
+                          0.9,
+                      },
+
+                      y: {
+                        type:
+                          "spring",
+
+                        stiffness:
+                          230,
+
+                        damping:
+                          28,
+
+                        mass:
+                          0.9,
+                      },
+
+                      borderRadius:
+                        {
+                          duration:
+                            0.55,
+
+                          ease: [
+                            0.22,
+                            1,
+                            0.36,
+                            1,
+                          ],
+                        },
+
+                      clipPath: {
+                        duration:
+                          0.62,
+
+                        ease: [
+                          0.22,
+                          1,
+                          0.36,
+                          1,
+                        ],
+                      },
+                    }
+              }
+              onClick={(
+                event,
+              ) => {
+                event.stopPropagation();
               }}
             >
-              <div className="adventure-project-archive-shell">
-                <header className="adventure-project-index-header adventure-project-index-header--archive">
-                  <p>
-                    Selected work
-                  </p>
+              <SceneReturnButton
+                buttonRef={
+                  returnButtonRef
+                }
+                onClick={onClose}
+                ariaLabel="Return to the 3D model from Projects"
+              />
 
-                  <h2 id="adventure-project-index-title">
-                    Projects
-                  </h2>
-
-                  <span className="adventure-project-index-subtitle">
-                    Archive
-                  </span>
-
-                  <p className="adventure-project-index-intro">
-                    A collection of
-                    fullstack apps,
-                    embedded systems,
-                    e-commerce builds,
-                    and creative
-                    development work.
-                    Choose a project to
-                    open its full case
-                    study.
-                  </p>
-                </header>
-
-                <section className="adventure-project-filter-bar">
-                  <div
-                    className="adventure-project-filter-row"
-                    aria-label="Project filters"
-                    role="tablist"
-                  >
-                    {PROJECT_FILTERS.map(
-                      (
-                        filter,
-                      ) => {
-                        const isActive =
-                          activeFilter ===
-                          filter.id;
-
-                        return (
-                          <button
-                            key={filter.id}
-                            type="button"
-                            role="tab"
-                            aria-selected={
-                              isActive
-                            }
-                            className={[
-                              "adventure-project-filter-tab",
-                              isActive
-                                ? "is-active"
-                                : "",
-                            ]
-                              .filter(
-                                Boolean,
-                              )
-                              .join(" ")}
-                            onClick={() => {
-                              setActiveFilter(
-                                filter.id,
-                              );
-                            }}
-                          >
-                            {
-                              filter.label
-                            }
-                          </button>
-                        );
-                      },
-                    )}
-                  </div>
-
-                  <p className="adventure-project-filter-status">
-                    Showing{" "}
-                    <strong>
-                      {
-                        filteredProjects.length
+              <motion.div
+                ref={scrollRef}
+                className="adventure-project-index-body"
+                initial={
+                  reduceMotion
+                    ? {
+                        opacity:
+                          0,
                       }
-                    </strong>{" "}
-                    of{" "}
-                    <strong>
-                      {projects.length}
-                    </strong>{" "}
-                    projects
-                  </p>
-                </section>
+                    : {
+                        opacity:
+                          0,
 
-                <section
-                  className="adventure-project-archive-grid"
-                  aria-label="Project list"
-                >
-                  {filteredProjects.length >
-                  0 ? (
-                    filteredProjects.map(
-                      (
-                        project,
-                        index,
-                      ) => {
-                        const coverImage =
-                          project
-                            .images?.[0];
+                        y: 22,
+                      }
+                }
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                exit={{
+                  opacity: 0,
+                  y: 12,
+                }}
+                transition={{
+                  duration:
+                    reduceMotion
+                      ? 0.12
+                      : 0.48,
 
-                        const projectFilters =
-                          getProjectFilterIds(
+                  delay:
+                    reduceMotion
+                      ? 0
+                      : 0.16,
+
+                  ease: [
+                    0.22,
+                    1,
+                    0.36,
+                    1,
+                  ],
+                }}
+              >
+                <div className="adventure-project-reveal-surface">
+                  <div className="adventure-project-archive-shell">
+                    <header className="adventure-project-index-header adventure-project-index-header--archive">
+                      <p>
+                        Selected
+                        work
+                      </p>
+
+                      <h2 id="adventure-project-index-title">
+                        Projects
+                      </h2>
+
+                      <span className="adventure-project-index-subtitle">
+                        Archive
+                      </span>
+
+                      <p className="adventure-project-index-intro">
+                        A
+                        collection
+                        of
+                        fullstack
+                        apps,
+                        embedded
+                        systems,
+                        e-commerce
+                        builds,
+                        and
+                        creative
+                        development
+                        work.
+                        Choose a
+                        project
+                        to open
+                        its full
+                        case
+                        study.
+                      </p>
+                    </header>
+
+                    <section className="adventure-project-filter-bar">
+                      <div
+                        className="adventure-project-filter-row"
+                        aria-label="Project filters"
+                        role="tablist"
+                      >
+                        {PROJECT_FILTERS.map(
+                          (
+                            filter,
+                          ) => {
+                            const isActive =
+                              activeFilter ===
+                              filter.id;
+
+                            return (
+                              <button
+                                key={
+                                  filter.id
+                                }
+                                type="button"
+                                role="tab"
+                                aria-selected={
+                                  isActive
+                                }
+                                className={[
+                                  "adventure-project-filter-tab",
+
+                                  isActive
+                                    ? "is-active"
+                                    : "",
+                                ]
+                                  .filter(
+                                    Boolean,
+                                  )
+                                  .join(
+                                    " ",
+                                  )}
+                                onClick={() => {
+                                  setActiveFilter(
+                                    filter.id,
+                                  );
+                                }}
+                              >
+                                {
+                                  filter.label
+                                }
+                              </button>
+                            );
+                          },
+                        )}
+                      </div>
+
+                      <p className="adventure-project-filter-status">
+                        Showing{" "}
+                        <strong>
+                          {
+                            filteredProjects.length
+                          }
+                        </strong>{" "}
+                        of{" "}
+                        <strong>
+                          {
+                            projects.length
+                          }
+                        </strong>{" "}
+                        projects
+                      </p>
+                    </section>
+
+                    <section
+                      className="adventure-project-archive-grid"
+                      aria-label="Project list"
+                    >
+                      {filteredProjects.length >
+                      0 ? (
+                        filteredProjects.map(
+                          (
                             project,
-                          ).filter(
-                            (
-                              id,
-                            ) =>
-                              id !==
-                              "all",
-                          );
+                            index,
+                          ) => {
+                            const coverImage =
+                              project
+                                .images?.[0];
 
-                        return (
-                          <motion.button
-                            key={
-                              project.id
-                            }
-                            type="button"
-                            className="adventure-project-archive-card"
-                            onClick={() => {
-                              onProjectSelect(
-                                project.id,
+                            const projectFilters =
+                              getProjectFilterIds(
+                                project,
+                              ).filter(
+                                (
+                                  id,
+                                ) =>
+                                  id !==
+                                  "all",
                               );
-                            }}
-                            whileHover={
-                              reduceMotion
-                                ? undefined
-                                : {
-                                    y: -6,
-                                    scale:
-                                      1.01,
-                                  }
-                            }
-                            whileTap={
-                              reduceMotion
-                                ? undefined
-                                : {
-                                    scale:
-                                      0.99,
-                                  }
-                            }
-                            transition={{
-                              type: "spring",
-                              stiffness: 340,
-                              damping: 28,
-                            }}
-                            aria-label={`Open case study for ${project.title}`}
-                          >
-                            <div className="adventure-project-archive-image-wrap">
-                              {coverImage ? (
-                                <img
-                                  src={
-                                    coverImage
-                                  }
-                                  alt={`${project.title} preview`}
-                                  className="adventure-project-archive-image"
-                                />
-                              ) : (
-                                <div className="adventure-project-archive-placeholder">
-                                  <span>
-                                    JA
+
+                            return (
+                              <motion.button
+                                key={
+                                  project.id
+                                }
+                                type="button"
+                                className="adventure-project-archive-card"
+                                onClick={() => {
+                                  onProjectSelect(
+                                    project.id,
+                                  );
+                                }}
+                                whileHover={
+                                  reduceMotion
+                                    ? undefined
+                                    : {
+                                        y: -6,
+                                        scale:
+                                          1.01,
+                                      }
+                                }
+                                whileTap={
+                                  reduceMotion
+                                    ? undefined
+                                    : {
+                                        scale:
+                                          0.99,
+                                      }
+                                }
+                                transition={{
+                                  type:
+                                    "spring",
+
+                                  stiffness:
+                                    340,
+
+                                  damping:
+                                    28,
+                                }}
+                                aria-label={`Open case study for ${project.title}`}
+                              >
+                                <div className="adventure-project-archive-image-wrap">
+                                  {coverImage ? (
+                                    <img
+                                      src={
+                                        coverImage
+                                      }
+                                      alt={`${project.title} preview`}
+                                      className="adventure-project-archive-image"
+                                    />
+                                  ) : (
+                                    <div className="adventure-project-archive-placeholder">
+                                      <span>
+                                        JA
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  <span className="adventure-project-archive-number">
+                                    {String(
+                                      index +
+                                        1,
+                                    ).padStart(
+                                      2,
+                                      "0",
+                                    )}
                                   </span>
                                 </div>
-                              )}
 
-                              <span className="adventure-project-archive-number">
-                                {String(
-                                  index +
-                                    1,
-                                ).padStart(
-                                  2,
-                                  "0",
-                                )}
-                              </span>
-                            </div>
+                                <div className="adventure-project-archive-copy">
+                                  <div className="adventure-project-archive-meta">
+                                    <span>
+                                      {
+                                        project.period
+                                      }
+                                    </span>
 
-                            <div className="adventure-project-archive-copy">
-                              <div className="adventure-project-archive-meta">
-                                <span>
-                                  {
-                                    project.period
-                                  }
-                                </span>
+                                    <strong>
+                                      {
+                                        project.role
+                                      }
+                                    </strong>
+                                  </div>
 
-                                <strong>
-                                  {
-                                    project.role
-                                  }
-                                </strong>
-                              </div>
+                                  <p className="adventure-project-archive-type">
+                                    {
+                                      project.type
+                                    }
+                                  </p>
 
-                              <p className="adventure-project-archive-type">
-                                {
-                                  project.type
-                                }
-                              </p>
+                                  <h3>
+                                    {
+                                      project.title
+                                    }
+                                  </h3>
 
-                              <h3>
-                                {
-                                  project.title
-                                }
-                              </h3>
+                                  <p className="adventure-project-archive-summary">
+                                    {
+                                      project.summary
+                                    }
+                                  </p>
 
-                              <p className="adventure-project-archive-summary">
-                                {
-                                  project.summary
-                                }
-                              </p>
+                                  <div className="adventure-project-archive-tags">
+                                    {projectFilters
+                                      .slice(
+                                        0,
+                                        2,
+                                      )
+                                      .map(
+                                        (
+                                          filterId,
+                                        ) => {
+                                          const filterLabel =
+                                            PROJECT_FILTERS.find(
+                                              (
+                                                item,
+                                              ) =>
+                                                item.id ===
+                                                filterId,
+                                            )
+                                              ?.label ??
+                                            filterId;
 
-                              <div className="adventure-project-archive-tags">
-                                {projectFilters
-                                  .slice(
-                                    0,
-                                    2,
-                                  )
-                                  .map(
-                                    (
-                                      filterId,
-                                    ) => {
-                                      const filterLabel =
-                                        PROJECT_FILTERS.find(
-                                          (
-                                            item,
-                                          ) =>
-                                            item.id ===
-                                            filterId,
-                                        )
-                                          ?.label ??
-                                        filterId;
+                                          return (
+                                            <span
+                                              key={
+                                                filterId
+                                              }
+                                            >
+                                              {
+                                                filterLabel
+                                              }
+                                            </span>
+                                          );
+                                        },
+                                      )}
 
-                                      return (
-                                        <span
-                                          key={
-                                            filterId
-                                          }
-                                        >
-                                          {
-                                            filterLabel
-                                          }
-                                        </span>
-                                      );
-                                    },
-                                  )}
+                                    {project.technologies
+                                      .slice(
+                                        0,
+                                        3,
+                                      )
+                                      .map(
+                                        (
+                                          tech,
+                                        ) => (
+                                          <span
+                                            key={
+                                              tech
+                                            }
+                                          >
+                                            {
+                                              tech
+                                            }
+                                          </span>
+                                        ),
+                                      )}
+                                  </div>
 
-                                {project.technologies
-                                  .slice(
-                                    0,
-                                    3,
-                                  )
-                                  .map(
-                                    (
-                                      tech,
-                                    ) => (
-                                      <span
-                                        key={
-                                          tech
-                                        }
-                                      >
-                                        {
-                                          tech
-                                        }
-                                      </span>
-                                    ),
-                                  )}
-                              </div>
+                                  <strong className="adventure-project-archive-open">
+                                    Open
+                                    case
+                                    study
 
-                              <strong className="adventure-project-archive-open">
-                                Open case study
-                                <span aria-hidden="true">
-                                  →
-                                </span>
-                              </strong>
-                            </div>
-                          </motion.button>
-                        );
-                      },
-                    )
-                  ) : (
-                    <div className="adventure-project-empty-state">
-                      <p>
-                        No projects are
-                        currently shown
-                        for this filter.
-                      </p>
-                    </div>
-                  )}
-                </section>
-              </div>
-            </motion.div>
-          </motion.article>
-          <ScrollToTopButton
-            scrollRef={scrollRef}
-          />
+                                    <span
+                                      aria-hidden="true"
+                                    >
+                                      →
+                                    </span>
+                                  </strong>
+                                </div>
+                              </motion.button>
+                            );
+                          },
+                        )
+                      ) : (
+                        <div className="adventure-project-empty-state">
+                          <p>
+                            No
+                            projects
+                            are
+                            currently
+                            shown
+                            for
+                            this
+                            filter.
+                          </p>
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                </div>
+
+                <div
+                  ref={revealRef}
+                  className="adventure-home-reveal-track"
+                  aria-hidden="true"
+                />
+              </motion.div>
+            </motion.article>
+
+            {/*
+             * IMPORTANT:
+             *
+             * This is INSIDE liftLayerRef.
+             * It moves away with the
+             * Projects modal.
+             */}
+            <div className="adventure-modal-scroll-button-carrier">
+              <ScrollToTopButton
+                scrollRef={scrollRef}
+              />
+            </div>
+          </div>
 
           <style jsx global>{`
-            .adventure-project-index-backdrop {
-              position: fixed;
+            .adventure-modal-lift-layer {
+              position: absolute;
               inset: 0;
-              z-index: 220;
 
-              display: grid;
+              width: 100%;
+              height: 100%;
 
-              background: rgba(
-                4,
-                2,
-                12,
-                0.76
-              );
+              will-change:
+                transform;
+            }
 
-              place-items: center;
+            .adventure-modal-scroll-button-carrier {
+              position: absolute;
+              inset: 0;
+
+              width: 100%;
+              height: 100%;
+
+              pointer-events: none;
+
+              transform:
+                translate3d(
+                  0,
+                  calc(
+                    -1 *
+                    var(
+                      --adventure-modal-native-scroll-shift,
+                      0px
+                    )
+                  ),
+                  0
+                );
+
+              will-change:
+                transform;
+            }
+
+            .adventure-modal-scroll-button-carrier
+              button {
+              pointer-events:
+                auto;
+            }
+
+            /*
+             * Keep this exactly as before:
+             * scrollbar disappears once the
+             * 3D homepage reveal begins.
+             */
+            [data-home-reveal-active="true"] {
+              scrollbar-width:
+                none !important;
+            }
+
+            [data-home-reveal-active="true"]::-webkit-scrollbar {
+              width:
+                0 !important;
+
+              height:
+                0 !important;
+            }
+
+            .adventure-project-index-backdrop {
+              position:
+                fixed;
+
+              inset: 0;
+
+              z-index:
+                220;
+
+              display:
+                grid;
+
+              place-items:
+                center;
+
+              background:
+                transparent !important;
+
+              backdrop-filter:
+                none !important;
+
+              -webkit-backdrop-filter:
+                none !important;
             }
 
             .adventure-project-index-modal {
-              position: absolute;
+              position:
+                absolute;
+
               inset: 0;
-              overflow: hidden;
+
+              overflow:
+                hidden;
+
+              background:
+                transparent !important;
             }
 
             .adventure-project-index-modal--archive {
-              color: #f4eeff;
+              color:
+                #f4eeff;
+
+              background:
+                transparent !important;
+            }
+
+            .adventure-project-index-modal--archive::before {
+              display:
+                none !important;
+            }
+
+            .adventure-project-index-body {
+              position:
+                relative;
+
+              z-index: 1;
+
+              width: 100%;
+              height: 100%;
+
+              box-sizing:
+                border-box;
+
+              overflow-x:
+                hidden;
+
+              overflow-y:
+                auto;
+
+              padding:
+                0 !important;
+
+              background:
+                transparent !important;
+
+              /*
+               * CHANGED:
+               * the Firefox track is now
+               * dark instead of transparent.
+               */
+              scrollbar-color:
+                #ff68b7
+                #0b081a;
+            }
+
+            /*
+             * Chrome / Edge / Safari scrollbar
+             * background now matches the modal.
+             *
+             * No width changes are made.
+             */
+            .adventure-project-index-body::-webkit-scrollbar {
+              background:
+                #0b081a;
+            }
+
+            .adventure-project-index-body::-webkit-scrollbar-track {
+              background:
+                linear-gradient(
+                  180deg,
+                  #0b081a
+                    0%,
+                  #080612
+                    48%,
+                  #03030a
+                    100%
+                );
+            }
+
+            .adventure-project-index-body::-webkit-scrollbar-corner {
+              background:
+                #0b081a;
+            }
+
+            .adventure-project-reveal-surface {
+              position:
+                relative;
+
+              width: 100%;
+
+              min-height:
+                100vh;
+
+              min-height:
+                100dvh;
+
+              box-sizing:
+                border-box;
+
+              padding:
+                clamp(
+                  92px,
+                  11vh,
+                  132px
+                )
+                clamp(
+                  22px,
+                  5vw,
+                  78px
+                )
+                92px;
 
               background:
                 radial-gradient(
-                  circle at 88% 10%,
+                  circle at
+                    88% 10%,
                   rgba(
                     255,
                     63,
                     159,
                     0.14
                   ),
-                  transparent 24%
+                  transparent
+                    24%
                 ),
                 radial-gradient(
-                  circle at 8% 90%,
+                  circle at
+                    8% 90%,
                   rgba(
                     154,
                     92,
                     255,
                     0.18
                   ),
-                  transparent 30%
+                  transparent
+                    30%
                 ),
                 radial-gradient(
-                  circle at 52% 110%,
+                  circle at
+                    52% 110%,
                   rgba(
                     105,
                     223,
                     255,
                     0.07
                   ),
-                  transparent 28%
+                  transparent
+                    28%
                 ),
                 linear-gradient(
                   180deg,
-                  #0b081a 0%,
-                  #080612 48%,
-                  #03030a 100%
+                  #0b081a
+                    0%,
+                  #080612
+                    48%,
+                  #03030a
+                    100%
                 );
             }
 
-            .adventure-project-index-modal--archive::before {
+            .adventure-project-reveal-surface::before {
               content: "";
 
-              position: absolute;
-              inset:
-                0
-                0
-                auto
-                0;
-              z-index: 0;
+              position:
+                absolute;
 
-              height: 8px;
+              top: 0;
+              right: 0;
+              left: 0;
 
-              background: linear-gradient(
-                90deg,
-                #9a5cff,
-                #ff4fb1,
-                #ff8ec9,
-                #69dfff
-              );
+              z-index: 2;
+
+              height:
+                8px;
+
+              background:
+                linear-gradient(
+                  90deg,
+                  #9a5cff,
+                  #ff4fb1,
+                  #ff8ec9,
+                  #69dfff
+                );
 
               box-shadow:
                 0 0 24px
@@ -843,49 +1248,53 @@ export default function ProjectsOverviewModal({
                   );
             }
 
-            .adventure-project-index-body {
-              position: relative;
-              z-index: 1;
+            .adventure-home-reveal-track {
+              position:
+                relative;
 
-              width: 100%;
-              height: 100%;
+              display:
+                block;
 
-              box-sizing: border-box;
+              width:
+                100%;
 
-              overflow-x: hidden;
-              overflow-y: auto;
+              height:
+                100vh;
 
-              padding:
-                clamp(
-                  92px,
-                  11vh,
-                  132px
-                )
-                clamp(
-                  22px,
-                  5vw,
-                  78px
-                )
-                92px;
+              height:
+                100dvh;
 
-              scrollbar-color:
-                #ff68b7
+              min-height:
+                100vh;
+
+              flex:
+                0 0 auto;
+
+              background:
                 transparent;
+
+              pointer-events:
+                none;
             }
 
             .adventure-project-archive-shell {
-              width: min(
-                100%,
-                1320px
-              );
-              margin: 0 auto;
+              width:
+                min(
+                  100%,
+                  1320px
+                );
+
+              margin:
+                0 auto;
             }
 
             .adventure-project-index-header--archive {
-              width: min(
-                840px,
-                100%
-              );
+              width:
+                min(
+                  840px,
+                  100%
+                );
+
               margin:
                 0 auto
                 clamp(
@@ -894,27 +1303,39 @@ export default function ProjectsOverviewModal({
                   72px
                 );
 
-              text-align: center;
+              text-align:
+                center;
             }
 
             .adventure-project-index-header--archive
               > p:first-child {
-              margin: 0;
+              margin:
+                0;
 
-              color: #ff91c7;
+              color:
+                #ff91c7;
 
-              font-size: 12px;
-              font-weight: 900;
-              letter-spacing: 0.18em;
-              text-transform: uppercase;
+              font-size:
+                12px;
+
+              font-weight:
+                900;
+
+              letter-spacing:
+                0.18em;
+
+              text-transform:
+                uppercase;
             }
 
             .adventure-project-index-header--archive
               h2 {
               margin:
-                76px 0 0;
+                76px
+                0 0;
 
-              color: #f4eeff;
+              color:
+                #f4eeff;
 
               font-family:
                 var(
@@ -922,14 +1343,22 @@ export default function ProjectsOverviewModal({
                 ),
                 Arial,
                 sans-serif;
-              font-size: clamp(
-                3.3rem,
-                8vw,
-                7.2rem
-              );
-              font-weight: 880;
-              letter-spacing: -0.07em;
-              line-height: 0.92;
+
+              font-size:
+                clamp(
+                  3.3rem,
+                  8vw,
+                  7.2rem
+                );
+
+              font-weight:
+                880;
+
+              letter-spacing:
+                -0.07em;
+
+              line-height:
+                0.92;
 
               text-shadow:
                 0 0 28px
@@ -949,102 +1378,155 @@ export default function ProjectsOverviewModal({
             }
 
             .adventure-project-index-subtitle {
-              display: block;
+              display:
+                block;
 
-              margin-top: 18px;
+              margin-top:
+                18px;
 
-              color: rgba(
-                244,
-                238,
-                255,
-                0.48
-              );
+              color:
+                rgba(
+                  244,
+                  238,
+                  255,
+                  0.48
+                );
 
-              font-size: 12px;
-              font-weight: 800;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
+              font-size:
+                12px;
+
+              font-weight:
+                800;
+
+              letter-spacing:
+                0.08em;
+
+              text-transform:
+                uppercase;
             }
 
             .adventure-project-index-intro {
-              max-width: 760px;
+              max-width:
+                760px;
 
               margin:
-                28px auto 0;
+                28px
+                auto 0;
 
-              color: rgba(
-                244,
-                238,
-                255,
-                0.74
-              );
+              color:
+                rgba(
+                  244,
+                  238,
+                  255,
+                  0.74
+                );
 
-              font-size: 15px;
-              line-height: 1.85;
+              font-size:
+                15px;
+
+              line-height:
+                1.85;
             }
 
             .adventure-project-filter-bar {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              gap: 16px;
+              display:
+                flex;
 
-              margin-bottom: 52px;
+              flex-direction:
+                column;
+
+              align-items:
+                center;
+
+              gap:
+                16px;
+
+              margin-bottom:
+                52px;
             }
 
             .adventure-project-filter-row {
-              display: flex;
-              flex-wrap: wrap;
-              justify-content: center;
-              gap: 12px 14px;
+              display:
+                flex;
+
+              flex-wrap:
+                wrap;
+
+              justify-content:
+                center;
+
+              gap:
+                12px
+                14px;
             }
 
             .adventure-project-filter-tab {
-              border: none;
-              border-bottom: 2px solid
+              border:
+                none;
+
+              border-bottom:
+                2px solid
                 transparent;
 
-              background: transparent;
+              background:
+                transparent;
+
               padding:
                 6px
                 4px
                 10px;
 
-              color: rgba(
-                202,
-                168,
-                255,
-                0.72
-              );
+              color:
+                rgba(
+                  202,
+                  168,
+                  255,
+                  0.72
+                );
 
-              font-family: inherit;
-              font-size: clamp(
-                0.95rem,
-                1.5vw,
-                1.18rem
-              );
-              font-weight: 800;
-              letter-spacing: 0.01em;
+              font-family:
+                inherit;
 
-              cursor: pointer;
+              font-size:
+                clamp(
+                  0.95rem,
+                  1.5vw,
+                  1.18rem
+                );
+
+              font-weight:
+                800;
+
+              letter-spacing:
+                0.01em;
+
+              cursor:
+                pointer;
+
               transition:
-                color 180ms ease,
+                color
+                  180ms
+                  ease,
                 border-color
-                  180ms ease,
+                  180ms
+                  ease,
                 text-shadow
-                  180ms ease;
+                  180ms
+                  ease;
             }
 
             .adventure-project-filter-tab:hover,
             .adventure-project-filter-tab:focus-visible {
-              color: #f4eeff;
+              color:
+                #f4eeff;
             }
 
             .adventure-project-filter-tab.is-active {
               border-bottom-color:
                 #ff68b7;
 
-              color: #ff9ed0;
+              color:
+                #ff9ed0;
 
               text-shadow:
                 0 0 16px
@@ -1057,41 +1539,60 @@ export default function ProjectsOverviewModal({
             }
 
             .adventure-project-filter-status {
-              margin: 0;
+              margin:
+                0;
 
-              color: rgba(
-                244,
-                238,
-                255,
-                0.62
-              );
+              color:
+                rgba(
+                  244,
+                  238,
+                  255,
+                  0.62
+                );
 
-              font-size: 12px;
-              font-weight: 700;
-              letter-spacing: 0.06em;
-              text-transform: uppercase;
+              font-size:
+                12px;
+
+              font-weight:
+                700;
+
+              letter-spacing:
+                0.06em;
+
+              text-transform:
+                uppercase;
             }
 
             .adventure-project-filter-status
               strong {
-              color: #f4eeff;
+              color:
+                #f4eeff;
             }
 
             .adventure-project-archive-grid {
-              display: grid;
+              display:
+                grid;
+
               grid-template-columns:
                 repeat(
                   2,
-                  minmax(0, 1fr)
+                  minmax(
+                    0,
+                    1fr
+                  )
                 );
+
               gap:
                 32px
                 36px;
             }
 
             .adventure-project-archive-card {
-              display: flex;
-              flex-direction: column;
+              display:
+                flex;
+
+              flex-direction:
+                column;
 
               border:
                 1px solid
@@ -1101,18 +1602,22 @@ export default function ProjectsOverviewModal({
                   255,
                   0.16
                 );
-              border-radius: 28px;
+
+              border-radius:
+                28px;
 
               background:
                 radial-gradient(
-                  circle at 100% 0,
+                  circle at
+                    100% 0,
                   rgba(
                     154,
                     92,
                     255,
                     0.18
                   ),
-                  transparent 42%
+                  transparent
+                    42%
                 ),
                 linear-gradient(
                   145deg,
@@ -1130,13 +1635,18 @@ export default function ProjectsOverviewModal({
                   )
                 );
 
-              padding: 0;
+              padding:
+                0;
 
-              color: inherit;
-              text-align: left;
+              color:
+                inherit;
+
+              text-align:
+                left;
 
               box-shadow:
-                0 16px 42px
+                0 16px
+                  42px
                   rgba(
                     0,
                     0,
@@ -1144,25 +1654,33 @@ export default function ProjectsOverviewModal({
                     0.26
                   );
 
-              cursor: pointer;
-              overflow: hidden;
+              cursor:
+                pointer;
+
+              overflow:
+                hidden;
 
               transition:
                 border-color
-                  180ms ease,
+                  180ms
+                  ease,
                 box-shadow
-                  180ms ease,
-                transform 180ms ease;
+                  180ms
+                  ease,
+                transform
+                  180ms
+                  ease;
             }
 
             .adventure-project-archive-card:hover,
             .adventure-project-archive-card:focus-visible {
-              border-color: rgba(
-                255,
-                104,
-                183,
-                0.46
-              );
+              border-color:
+                rgba(
+                  255,
+                  104,
+                  183,
+                  0.46
+                );
 
               box-shadow:
                 0 0 28px
@@ -1172,7 +1690,8 @@ export default function ProjectsOverviewModal({
                     159,
                     0.14
                   ),
-                0 20px 46px
+                0 20px
+                  46px
                   rgba(
                     0,
                     0,
@@ -1182,10 +1701,14 @@ export default function ProjectsOverviewModal({
             }
 
             .adventure-project-archive-image-wrap {
-              position: relative;
-              overflow: hidden;
+              position:
+                relative;
 
-              aspect-ratio: 16 / 9;
+              overflow:
+                hidden;
+
+              aspect-ratio:
+                16 / 9;
 
               background:
                 rgba(
@@ -1197,51 +1720,72 @@ export default function ProjectsOverviewModal({
             }
 
             .adventure-project-archive-image-wrap::after {
-              content: "";
+              content:
+                "";
 
-              position: absolute;
-              inset: 0;
+              position:
+                absolute;
+
+              inset:
+                0;
 
               background:
                 linear-gradient(
                   180deg,
-                  transparent 58%,
+                  transparent
+                    58%,
                   rgba(
                     8,
                     5,
                     20,
                     0.16
-                  ) 100%
+                  )
+                    100%
                 );
 
-              pointer-events: none;
+              pointer-events:
+                none;
             }
 
             .adventure-project-archive-image {
-              width: 100%;
-              height: 100%;
+              display:
+                block;
 
-              object-fit: cover;
-              display: block;
+              width:
+                100%;
+
+              height:
+                100%;
+
+              object-fit:
+                cover;
 
               transition:
-                transform 280ms
+                transform
+                  280ms
                   ease;
             }
 
             .adventure-project-archive-card:hover
               .adventure-project-archive-image {
-              transform: scale(
-                1.025
-              );
+              transform:
+                scale(
+                  1.025
+                );
             }
 
             .adventure-project-archive-placeholder {
-              display: grid;
-              width: 100%;
-              height: 100%;
+              display:
+                grid;
 
-              place-items: center;
+              width:
+                100%;
+
+              height:
+                100%;
+
+              place-items:
+                center;
 
               background:
                 linear-gradient(
@@ -1263,18 +1807,31 @@ export default function ProjectsOverviewModal({
 
             .adventure-project-archive-placeholder
               span {
-              color: #f4eeff;
+              color:
+                #f4eeff;
 
-              font-size: 2rem;
-              font-weight: 900;
-              letter-spacing: -0.05em;
+              font-size:
+                2rem;
+
+              font-weight:
+                900;
+
+              letter-spacing:
+                -0.05em;
             }
 
             .adventure-project-archive-number {
-              position: absolute;
-              left: 16px;
-              bottom: 16px;
-              z-index: 1;
+              position:
+                absolute;
+
+              left:
+                16px;
+
+              bottom:
+                16px;
+
+              z-index:
+                1;
 
               border:
                 1px solid
@@ -1284,33 +1841,49 @@ export default function ProjectsOverviewModal({
                   255,
                   0.22
                 );
-              border-radius: 999px;
 
-              background: rgba(
-                13,
-                9,
-                31,
-                0.74
-              );
+              border-radius:
+                999px;
+
+              background:
+                rgba(
+                  13,
+                  9,
+                  31,
+                  0.74
+                );
 
               padding:
                 8px
                 12px;
 
-              color: #f4eeff;
+              color:
+                #f4eeff;
 
-              font-size: 11px;
-              font-weight: 900;
-              letter-spacing: 0.08em;
+              font-size:
+                11px;
+
+              font-weight:
+                900;
+
+              letter-spacing:
+                0.08em;
 
               backdrop-filter:
-                blur(10px);
+                blur(
+                  10px
+                );
             }
 
             .adventure-project-archive-copy {
-              display: flex;
-              flex-direction: column;
-              gap: 14px;
+              display:
+                flex;
+
+              flex-direction:
+                column;
+
+              gap:
+                14px;
 
               padding:
                 22px
@@ -1319,46 +1892,75 @@ export default function ProjectsOverviewModal({
             }
 
             .adventure-project-archive-meta {
-              display: flex;
-              flex-wrap: wrap;
-              justify-content: space-between;
-              gap: 10px;
+              display:
+                flex;
 
-              color: rgba(
-                244,
-                238,
-                255,
-                0.55
-              );
+              flex-wrap:
+                wrap;
 
-              font-size: 11px;
-              font-weight: 800;
-              letter-spacing: 0.07em;
-              text-transform: uppercase;
+              justify-content:
+                space-between;
+
+              gap:
+                10px;
+
+              color:
+                rgba(
+                  244,
+                  238,
+                  255,
+                  0.55
+                );
+
+              font-size:
+                11px;
+
+              font-weight:
+                800;
+
+              letter-spacing:
+                0.07em;
+
+              text-transform:
+                uppercase;
             }
 
             .adventure-project-archive-meta
               strong {
-              color: #ff9ed0;
-              font-weight: 800;
+              color:
+                #ff9ed0;
+
+              font-weight:
+                800;
             }
 
             .adventure-project-archive-type {
-              margin: 0;
+              margin:
+                0;
 
-              color: #ff7ebf;
+              color:
+                #ff7ebf;
 
-              font-size: 11px;
-              font-weight: 900;
-              letter-spacing: 0.1em;
-              text-transform: uppercase;
+              font-size:
+                11px;
+
+              font-weight:
+                900;
+
+              letter-spacing:
+                0.1em;
+
+              text-transform:
+                uppercase;
             }
 
             .adventure-project-archive-copy
               h3 {
-              margin: 0;
+              margin:
+                0;
 
-              color: #f4eeff;
+              color:
+                #f4eeff;
 
               font-family:
                 var(
@@ -1366,40 +1968,64 @@ export default function ProjectsOverviewModal({
                 ),
                 Arial,
                 sans-serif;
-              font-size: clamp(
-                1.55rem,
-                2.2vw,
-                2.15rem
-              );
-              line-height: 1.08;
-              letter-spacing: -0.04em;
+
+              font-size:
+                clamp(
+                  1.55rem,
+                  2.2vw,
+                  2.15rem
+                );
+
+              line-height:
+                1.08;
+
+              letter-spacing:
+                -0.04em;
             }
 
             .adventure-project-archive-summary {
-              margin: 0;
+              margin:
+                0;
 
-              color: rgba(
-                244,
-                238,
-                255,
-                0.78
-              );
+              color:
+                rgba(
+                  244,
+                  238,
+                  255,
+                  0.78
+                );
 
-              font-size: 14px;
-              line-height: 1.8;
+              font-size:
+                14px;
 
-              display: -webkit-box;
-              -webkit-line-clamp: 4;
-              -webkit-box-orient: vertical;
-              overflow: hidden;
+              line-height:
+                1.8;
+
+              display:
+                -webkit-box;
+
+              -webkit-line-clamp:
+                4;
+
+              -webkit-box-orient:
+                vertical;
+
+              overflow:
+                hidden;
             }
 
             .adventure-project-archive-tags {
-              display: flex;
-              flex-wrap: wrap;
-              gap: 8px;
+              display:
+                flex;
 
-              margin-top: 2px;
+              flex-wrap:
+                wrap;
+
+              gap:
+                8px;
+
+              margin-top:
+                2px;
             }
 
             .adventure-project-archive-tags
@@ -1412,7 +2038,9 @@ export default function ProjectsOverviewModal({
                   255,
                   0.2
                 );
-              border-radius: 999px;
+
+              border-radius:
+                999px;
 
               background:
                 linear-gradient(
@@ -1435,38 +2063,56 @@ export default function ProjectsOverviewModal({
                 7px
                 11px;
 
-              color: rgba(
-                244,
-                238,
-                255,
-                0.84
-              );
+              color:
+                rgba(
+                  244,
+                  238,
+                  255,
+                  0.84
+                );
 
-              font-size: 11px;
-              font-weight: 700;
+              font-size:
+                11px;
+
+              font-weight:
+                700;
             }
 
             .adventure-project-archive-open {
-              display: inline-flex;
-              align-items: center;
-              gap: 8px;
+              display:
+                inline-flex;
 
-              margin-top: 4px;
+              align-items:
+                center;
 
-              color: #f4eeff;
+              gap:
+                8px;
 
-              font-size: 13px;
-              font-weight: 900;
-              letter-spacing: 0.03em;
+              margin-top:
+                4px;
+
+              color:
+                #f4eeff;
+
+              font-size:
+                13px;
+
+              font-weight:
+                900;
+
+              letter-spacing:
+                0.03em;
             }
 
             .adventure-project-archive-open
               span {
-              color: #69dfff;
+              color:
+                #69dfff;
             }
 
             .adventure-project-empty-state {
-              grid-column: 1 / -1;
+              grid-column:
+                1 / -1;
 
               border:
                 1px solid
@@ -1476,7 +2122,9 @@ export default function ProjectsOverviewModal({
                   255,
                   0.16
                 );
-              border-radius: 24px;
+
+              border-radius:
+                24px;
 
               background:
                 rgba(
@@ -1486,26 +2134,33 @@ export default function ProjectsOverviewModal({
                   0.72
                 );
 
-              padding: 32px;
+              padding:
+                32px;
 
-              text-align: center;
-              color: rgba(
-                244,
-                238,
-                255,
-                0.72
-              );
+              text-align:
+                center;
+
+              color:
+                rgba(
+                  244,
+                  238,
+                  255,
+                  0.72
+                );
             }
 
             .adventure-project-index-modal--archive
               ::selection {
-              background: rgba(
-                255,
-                104,
-                183,
-                0.34
-              );
-              color: #ffffff;
+              background:
+                rgba(
+                  255,
+                  104,
+                  183,
+                  0.34
+                );
+
+              color:
+                #ffffff;
             }
 
             .adventure-project-index-modal--archive
@@ -1513,10 +2168,14 @@ export default function ProjectsOverviewModal({
               outline:
                 2px solid
                 #69dfff;
-              outline-offset: 4px;
+
+              outline-offset:
+                4px;
             }
 
-            @media (max-width: 1100px) {
+            @media (
+              max-width: 1100px
+            ) {
               .adventure-project-archive-grid {
                 gap:
                   28px
@@ -1524,14 +2183,19 @@ export default function ProjectsOverviewModal({
               }
             }
 
-            @media (max-width: 900px) {
+            @media (
+              max-width: 900px
+            ) {
               .adventure-project-archive-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns:
+                  1fr;
               }
             }
 
-            @media (max-width: 767px) {
-              .adventure-project-index-body {
+            @media (
+              max-width: 767px
+            ) {
+              .adventure-project-reveal-surface {
                 padding:
                   88px
                   18px
@@ -1544,39 +2208,59 @@ export default function ProjectsOverviewModal({
               }
 
               .adventure-project-index-header--archive {
-                margin-bottom: 42px;
-                text-align: left;
+                margin-bottom:
+                  42px;
+
+                text-align:
+                  left;
               }
 
               .adventure-project-index-header--archive
                 h2 {
-                margin-top: 42px;
-                font-size: clamp(
-                  3rem,
-                  16vw,
-                  4.9rem
-                );
+                margin-top:
+                  42px;
+
+                font-size:
+                  clamp(
+                    3rem,
+                    16vw,
+                    4.9rem
+                  );
               }
 
               .adventure-project-index-intro {
-                margin-left: 0;
-                margin-right: 0;
+                margin-left:
+                  0;
+
+                margin-right:
+                  0;
               }
 
               .adventure-project-filter-bar {
-                align-items: stretch;
-                margin-bottom: 34px;
+                align-items:
+                  stretch;
+
+                margin-bottom:
+                  34px;
               }
 
               .adventure-project-filter-row {
-                justify-content: flex-start;
-                overflow-x: auto;
-                flex-wrap: nowrap;
-                padding-bottom: 4px;
+                justify-content:
+                  flex-start;
+
+                overflow-x:
+                  auto;
+
+                flex-wrap:
+                  nowrap;
+
+                padding-bottom:
+                  4px;
               }
 
               .adventure-project-filter-status {
-                text-align: left;
+                text-align:
+                  left;
               }
 
               .adventure-project-archive-copy {
@@ -1588,21 +2272,25 @@ export default function ProjectsOverviewModal({
 
               .adventure-project-archive-copy
                 h3 {
-                font-size: 1.5rem;
+                font-size:
+                  1.5rem;
               }
 
               .adventure-project-archive-summary {
-                -webkit-line-clamp: 5;
+                -webkit-line-clamp:
+                  5;
               }
             }
 
             @media (
-              prefers-reduced-motion: reduce
+              prefers-reduced-motion:
+                reduce
             ) {
               .adventure-project-archive-card,
               .adventure-project-archive-image,
               .adventure-project-filter-tab {
-                transition: none;
+                transition:
+                  none;
               }
             }
           `}</style>
