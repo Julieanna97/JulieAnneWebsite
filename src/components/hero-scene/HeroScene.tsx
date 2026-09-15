@@ -1054,6 +1054,28 @@ export default function HeroScene({
       />
 
       <ProjectCaseStudyModal
+        /*
+         * Every case study must start with a completely
+         * fresh scroll/reveal lifecycle.
+         *
+         * Without this key, changing from project A to
+         * project B can reuse the same mounted modal
+         * instance. That can carry over the previous
+         * case study's scroll position, reveal state,
+         * pointer-event release state, lift transform,
+         * and scroll-button offset.
+         *
+         * Keying by project id cleanly remounts the case
+         * study only when the selected project changes.
+         * While the same project is merely scrolled out
+         * to reveal the 3D home, the key stays unchanged,
+         * so reverse-scrolling into that same project
+         * continues to work exactly as before.
+         */
+        key={
+          selectedProjectId ??
+          "project-case-study-idle"
+        }
         projectId={
           selectedProjectId
         }
