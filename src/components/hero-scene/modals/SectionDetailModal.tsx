@@ -1,33 +1,26 @@
 "use client";
-
 import Image from "next/image";
-
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
+  type RefObject,
 } from "react";
-
 import {
   AnimatePresence,
   motion,
   useReducedMotion,
 } from "framer-motion";
-
 import {
   ABOUT_EXPERIENCE,
   ABOUT_SKILL_GROUPS,
   CREDIT_GROUPS,
 } from "@/components/hero-scene/portfolioData";
-
 import ScrollToTopButton from "@/components/ScrollToTopButton";
-
 import useModalHomeReveal from "./useModalHomeReveal";
-
 const ABOUT_PORTRAIT_SRC =
   "/about/julie-anne.jpg";
-
 const ABOUT_NAV_ITEMS = [
   {
     id: "about-profile",
@@ -46,7 +39,6 @@ const ABOUT_NAV_ITEMS = [
     label: "Contact",
   },
 ] as const;
-
 const CREDIT_NAV_ITEMS = [
   {
     id: "credits-overview",
@@ -65,50 +57,83 @@ const CREDIT_NAV_ITEMS = [
     label: "Direction",
   },
 ] as const;
-
 type AboutSectionId =
   (typeof ABOUT_NAV_ITEMS)[number]["id"];
-
 type CreditSectionId =
   (typeof CREDIT_NAV_ITEMS)[number]["id"];
-
 type NavigationItem<
   T extends string,
 > = {
   id: T;
   label: string;
 };
-
 const aboutExperienceItems =
   Array.isArray(
     ABOUT_EXPERIENCE,
   )
     ? ABOUT_EXPERIENCE
     : [];
-
 const aboutSkillGroups =
   Array.isArray(
     ABOUT_SKILL_GROUPS,
   )
     ? ABOUT_SKILL_GROUPS
     : [];
-
 const creditGroups =
   Array.isArray(
     CREDIT_GROUPS,
   )
     ? CREDIT_GROUPS
     : [];
-
 type SectionDetailModalProps = {
   detailId:
     | "about"
     | "credits"
     | null;
-
   onClose: () => void;
 };
 
+type ModalHomeRevealBinderProps = {
+  scrollRef:
+    RefObject<HTMLElement | null>;
+
+  revealRef:
+    RefObject<HTMLDivElement | null>;
+
+  liftRef:
+    RefObject<HTMLDivElement | null>;
+
+  releaseRef:
+    RefObject<HTMLDivElement | null>;
+};
+
+/*
+ * IMPORTANT:
+ *
+ * About and Credits share the same parent component, but the
+ * actual modal DOM is keyed by `detailId` inside AnimatePresence.
+ *
+ * Keeping the reveal hook in this keyed child guarantees that
+ * each new modal instance binds its scroll/touch listeners to
+ * the CURRENT DOM nodes instead of retaining references to the
+ * previously released About/Credits modal.
+ */
+function ModalHomeRevealBinder({
+  scrollRef,
+  revealRef,
+  liftRef,
+  releaseRef,
+}: ModalHomeRevealBinderProps) {
+  useModalHomeReveal({
+    active: true,
+    scrollRef,
+    revealRef,
+    liftRef,
+    releaseRef,
+  });
+
+  return null;
+}
 function useSectionNavigation<
   T extends string,
 >(
@@ -117,35 +142,29 @@ function useSectionNavigation<
 ) {
   const reduceMotion =
     useReducedMotion();
-
   const layoutRef =
     useRef<HTMLDivElement | null>(
       null,
     );
-
   const [
     activeSection,
     setActiveSection,
   ] = useState<T>(
     initialSection,
   );
-
   useEffect(() => {
     const layout =
       layoutRef.current;
-
     const scrollRoot =
       layout?.closest<HTMLElement>(
         ".adventure-section-detail-modal",
       );
-
     if (
       !layout ||
       !scrollRoot
     ) {
       return;
     }
-
     const sections =
       items.flatMap(
         ({
@@ -155,7 +174,6 @@ function useSectionNavigation<
             layout.querySelector<HTMLElement>(
               `#${id}`,
             );
-
           return element
             ? [
                 {
@@ -166,27 +184,22 @@ function useSectionNavigation<
             : [];
         },
       );
-
     if (
       sections.length === 0
     ) {
       return;
     }
-
     let animationFrame = 0;
-
     const updateActiveSection =
       () => {
         window.cancelAnimationFrame(
           animationFrame,
         );
-
         animationFrame =
           window.requestAnimationFrame(
             () => {
               const rootRect =
                 scrollRoot.getBoundingClientRect();
-
               const activationLine =
                 rootRect.top +
                 Math.min(
@@ -194,19 +207,16 @@ function useSectionNavigation<
                     0.34,
                   260,
                 );
-
               let nextSection:
                 | T
                 | undefined =
                 sections[0]?.id;
-
               for (
                 const section
                 of sections
               ) {
                 const sectionRect =
                   section.element.getBoundingClientRect();
-
                 if (
                   sectionRect.top <=
                   activationLine
@@ -217,13 +227,11 @@ function useSectionNavigation<
                   break;
                 }
               }
-
               const isAtBottom =
                 scrollRoot.scrollTop +
                   scrollRoot.clientHeight >=
                 scrollRoot.scrollHeight -
                   8;
-
               if (isAtBottom) {
                 nextSection =
                   sections[
@@ -231,7 +239,6 @@ function useSectionNavigation<
                       1
                   ]?.id;
               }
-
               if (nextSection) {
                 setActiveSection(
                   (
@@ -246,9 +253,7 @@ function useSectionNavigation<
             },
           );
       };
-
     updateActiveSection();
-
     scrollRoot.addEventListener(
       "scroll",
       updateActiveSection,
@@ -256,12 +261,10 @@ function useSectionNavigation<
         passive: true,
       },
     );
-
     window.addEventListener(
       "resize",
       updateActiveSection,
     );
-
     const resizeObserver =
       typeof ResizeObserver !==
       "undefined"
@@ -269,32 +272,26 @@ function useSectionNavigation<
             updateActiveSection,
           )
         : null;
-
     resizeObserver?.observe(
       layout,
     );
-
     return () => {
       window.cancelAnimationFrame(
         animationFrame,
       );
-
       scrollRoot.removeEventListener(
         "scroll",
         updateActiveSection,
       );
-
       window.removeEventListener(
         "resize",
         updateActiveSection,
       );
-
       resizeObserver?.disconnect();
     };
   }, [
     items,
   ]);
-
   const scrollToSection =
     useCallback(
       (
@@ -302,17 +299,14 @@ function useSectionNavigation<
       ) => {
         const layout =
           layoutRef.current;
-
         const scrollRoot =
           layout?.closest<HTMLElement>(
             ".adventure-section-detail-modal",
           );
-
         const section =
           layout?.querySelector<HTMLElement>(
             `#${sectionId}`,
           );
-
         if (
           !layout ||
           !scrollRoot ||
@@ -320,29 +314,23 @@ function useSectionNavigation<
         ) {
           return;
         }
-
         const rootRect =
           scrollRoot.getBoundingClientRect();
-
         const sectionRect =
           section.getBoundingClientRect();
-
         const nextScrollTop =
           scrollRoot.scrollTop +
           sectionRect.top -
           rootRect.top -
           36;
-
         setActiveSection(
           sectionId,
         );
-
         scrollRoot.scrollTo({
           top: Math.max(
             0,
             nextScrollTop,
           ),
-
           behavior:
             reduceMotion
               ? "auto"
@@ -353,36 +341,30 @@ function useSectionNavigation<
         reduceMotion,
       ],
     );
-
   return {
     layoutRef,
     activeSection,
     scrollToSection,
   };
 }
-
 export default function SectionDetailModal({
   detailId,
   onClose,
 }: SectionDetailModalProps) {
   const reduceMotion =
     useReducedMotion();
-
   const modalRef =
     useRef<HTMLElement | null>(
       null,
     );
-
   const revealRef =
     useRef<HTMLDivElement | null>(
       null,
     );
-
   const backdropRef =
     useRef<HTMLDivElement | null>(
       null,
     );
-
   /*
   * Only this layer moves upward
   * during the homepage reveal.
@@ -395,68 +377,14 @@ export default function SectionDetailModal({
     useRef<HTMLDivElement | null>(
       null,
     );
-
-  const handleHomeRevealComplete =
-    useCallback(() => {
-      /*
-       * Remove About/Credits first.
-       * This releases interactionPaused
-       * in the already-running 3D scene.
-       */
-      onClose();
-
-      /*
-       * After React commits the modal
-       * state change, return the scene
-       * to the normal home orbit.
-       */
-      window.requestAnimationFrame(
-        () => {
-          window.requestAnimationFrame(
-            () => {
-              window.dispatchEvent(
-                new CustomEvent(
-                  "adventure:return-home",
-                ),
-              );
-            },
-          );
-        },
-      );
-    }, [
-      onClose,
-    ]);
-
-  useModalHomeReveal({
-    active: Boolean(
-      detailId,
-    ),
-
-    scrollRef: modalRef,
-
-    revealRef,
-
-    liftRef:
-      liftLayerRef,
-
-    releaseRef:
-      backdropRef,
-
-    onComplete:
-      handleHomeRevealComplete,
-  });
-
   useEffect(() => {
     if (!detailId) {
       return;
     }
-
     const previousOverflow =
       document.body.style.overflow;
-
     document.body.style.overflow =
       "hidden";
-
     const handleKeyDown = (
       event: KeyboardEvent,
     ) => {
@@ -467,26 +395,21 @@ export default function SectionDetailModal({
         onClose();
       }
     };
-
     window.addEventListener(
       "keydown",
       handleKeyDown,
     );
-
     const focusTimer =
       window.setTimeout(() => {
         modalRef.current?.focus();
       }, 100);
-
     return () => {
       document.body.style.overflow =
         previousOverflow;
-
       window.removeEventListener(
         "keydown",
         handleKeyDown,
       );
-
       window.clearTimeout(
         focusTimer,
       );
@@ -495,46 +418,36 @@ export default function SectionDetailModal({
     detailId,
     onClose,
   ]);
-
   const isAbout =
     detailId === "about";
-
   const isCredits =
     detailId === "credits";
-
   const titleId =
     detailId
       ? `section-detail-title-${detailId}`
       : undefined;
-
   const modalClassName = [
     "adventure-section-detail-modal",
-
     isAbout
       ? "adventure-section-detail-modal--about"
       : "",
-
     isCredits
       ? "adventure-section-detail-modal--credits"
       : "",
   ]
     .filter(Boolean)
     .join(" ");
-
   const surfaceClassName = [
     "adventure-section-reveal-surface",
-
     isAbout
       ? "adventure-section-reveal-surface--about"
       : "",
-
     isCredits
       ? "adventure-section-reveal-surface--credits"
       : "",
   ]
     .filter(Boolean)
     .join(" ");
-
   const panelInitial =
     reduceMotion
       ? {
@@ -548,7 +461,6 @@ export default function SectionDetailModal({
           clipPath:
             "inset(7% 7% 7% 7% round 36px)",
         };
-
   const panelVisible = {
     opacity: 1,
     scale: 1,
@@ -557,7 +469,6 @@ export default function SectionDetailModal({
     clipPath:
       "inset(0% 0% 0% 0% round 0px)",
   };
-
   const panelExit =
     reduceMotion
       ? {
@@ -571,7 +482,6 @@ export default function SectionDetailModal({
           clipPath:
             "inset(6% 6% 6% 6% round 36px)",
         };
-
   return (
     <AnimatePresence mode="wait">
       {detailId && (
@@ -597,12 +507,18 @@ export default function SectionDetailModal({
           style={{
             background:
               "transparent",
-
             backdropFilter:
               "none",
           }}
           onClick={onClose}
         >
+          <ModalHomeRevealBinder
+            scrollRef={modalRef}
+            revealRef={revealRef}
+            liftRef={liftLayerRef}
+            releaseRef={backdropRef}
+          />
+
           {/*
           * This entire layer moves upward.
           *
@@ -634,21 +550,18 @@ export default function SectionDetailModal({
                       opacity: {
                         duration: 0.25,
                       },
-
                       scale: {
                         type: "spring",
                         stiffness: 230,
                         damping: 28,
                         mass: 0.9,
                       },
-
                       y: {
                         type: "spring",
                         stiffness: 230,
                         damping: 28,
                         mass: 0.9,
                       },
-
                       borderRadius: {
                         duration: 0.55,
                         ease: [
@@ -658,7 +571,6 @@ export default function SectionDetailModal({
                           1,
                         ],
                       },
-
                       clipPath: {
                         duration: 0.62,
                         ease: [
@@ -673,7 +585,6 @@ export default function SectionDetailModal({
               style={{
                 background:
                   "transparent",
-
                 padding: 0,
               }}
               onClick={(event) => {
@@ -710,12 +621,10 @@ export default function SectionDetailModal({
                       reduceMotion
                         ? 0.12
                         : 0.48,
-
                     delay:
                       reduceMotion
                         ? 0
                         : 0.18,
-
                     ease: [
                       0.22,
                       1,
@@ -739,14 +648,12 @@ export default function SectionDetailModal({
                   )}
                 </motion.div>
               </div>
-
               <div
                 ref={revealRef}
                 className="adventure-home-reveal-track"
                 aria-hidden="true"
               />
             </motion.article>
-
             {/*
             * IMPORTANT:
             * The button lives inside the
@@ -759,28 +666,20 @@ export default function SectionDetailModal({
               />
             </div>
           </div>
-
           <style jsx global>{`
-          
             .adventure-modal-lift-layer {
               position: absolute;
               inset: 0;
-
               width: 100%;
               height: 100%;
-
               will-change: transform;
             }
-
             .adventure-modal-scroll-button-carrier {
               position: absolute;
               inset: 0;
-
               width: 100%;
               height: 100%;
-
               pointer-events: none;
-
               /*
               * translate3d is intentional.
               *
@@ -804,10 +703,8 @@ export default function SectionDetailModal({
                   ),
                   0
                 );
-
               will-change: transform;
             }
-
             /*
             * The actual button remains clickable.
             */
@@ -815,7 +712,6 @@ export default function SectionDetailModal({
               button {
               pointer-events: auto;
             }
-
             /*
             * Once the homepage starts entering,
             * hide the modal's native scrollbar.
@@ -828,33 +724,25 @@ export default function SectionDetailModal({
               scrollbar-width:
                 none !important;
             }
-
             [data-home-reveal-active="true"]::-webkit-scrollbar {
               width:
                 0 !important;
-
               height:
                 0 !important;
             }
-
             .adventure-section-detail-backdrop {
               background:
                 transparent !important;
-
               backdrop-filter:
                 none !important;
-
               -webkit-backdrop-filter:
                 none !important;
             }
-
             .adventure-section-detail-modal {
               background:
                 transparent !important;
-
               padding:
                 0 !important;
-
               /*
               * Firefox fallback.
               * Pink thumb, dark modal-colored track.
@@ -863,7 +751,6 @@ export default function SectionDetailModal({
                 #ff68b7
                 #0b081a;
             }
-
             /*
             * Chrome / Edge / Safari.
             * This fills the previously transparent
@@ -873,7 +760,6 @@ export default function SectionDetailModal({
               background:
                 #0b081a;
             }
-
             /*
             * About uses the same dark gradient
             * as its modal surface.
@@ -887,7 +773,6 @@ export default function SectionDetailModal({
                   #03030a 100%
                 );
             }
-
             /*
             * Credits has the slightly different
             * middle tone already used by that modal.
@@ -901,23 +786,17 @@ export default function SectionDetailModal({
                   #03030a 100%
                 );
             }
-
             .adventure-section-detail-modal::-webkit-scrollbar-corner {
               background:
                 #0b081a;
             }
-
             .adventure-section-reveal-surface {
               position: relative;
-
               width: 100%;
-
               min-height: 100vh;
               min-height: 100dvh;
-
               box-sizing:
                 border-box;
-
               padding:
                 clamp(
                   82px,
@@ -935,7 +814,6 @@ export default function SectionDetailModal({
                   140px
                 );
             }
-
             .adventure-section-reveal-surface--about {
               background:
                 radial-gradient(
@@ -979,7 +857,6 @@ export default function SectionDetailModal({
                   #03030a 100%
                 );
             }
-
             .adventure-section-reveal-surface--credits {
               background:
                 radial-gradient(
@@ -1023,28 +900,20 @@ export default function SectionDetailModal({
                   #03030a 100%
                 );
             }
-
             .adventure-home-reveal-track {
               position: relative;
-
               display: block;
-
               width: 100%;
-
               height: 100vh;
               height: 100dvh;
-
               min-height: 100vh;
-
+              min-height: 100dvh;
               flex: 0 0 auto;
-
               background:
                 transparent;
-
               pointer-events:
                 none;
             }
-
             @media (
               max-width: 767px
             ) {
@@ -1066,7 +935,6 @@ export default function SectionDetailModal({
     </AnimatePresence>
   );
 }
-
 function AboutDetail({
   titleId,
 }: {
@@ -1081,11 +949,9 @@ function AboutDetail({
       ABOUT_NAV_ITEMS,
       "about-profile",
     );
-
   const firstEducationIndex =
     aboutExperienceItems.length +
     1;
-
   return (
     <div
       ref={layoutRef}
@@ -1102,7 +968,6 @@ function AboutDetail({
             const isActive =
               activeSection ===
               item.id;
-
             return (
               <a
                 key={item.id}
@@ -1121,7 +986,6 @@ function AboutDetail({
                   event,
                 ) => {
                   event.preventDefault();
-
                   scrollToSection(
                     item.id,
                   );
@@ -1131,29 +995,24 @@ function AboutDetail({
                   className="haruni-about-rail-dot"
                   aria-hidden="true"
                 />
-
                 {item.label}
               </a>
             );
           },
         )}
       </nav>
-
       <div className="haruni-about-content">
         <header className="haruni-about-page-heading">
           <p>
             About Me
           </p>
-
           <h2 id={titleId}>
             Julie Anne
           </h2>
-
           <span>
             Profile
           </span>
         </header>
-
         <section
           id="about-profile"
           className="haruni-profile-section"
@@ -1171,23 +1030,19 @@ function AboutDetail({
                   sizes="(max-width: 767px) 88vw, 380px"
                 />
               </div>
-
               <div className="haruni-profile-photo-label">
                 <span>
                   Malmö
                 </span>
-
                 <strong>
                   Sweden
                 </strong>
               </div>
             </div>
-
             <div className="haruni-profile-copy">
               <p className="haruni-section-label">
                 Hello
               </p>
-
               <h3>
                 I build
                 software with
@@ -1196,9 +1051,8 @@ function AboutDetail({
                 and
                 personality.
               </h3>
-
               <p>
-                I&apos;m Julie
+                I'm Julie
                 Anne, a
                 software
                 developer with
@@ -1213,7 +1067,6 @@ function AboutDetail({
                 interactive
                 interfaces.
               </p>
-
               <p>
                 I enjoy
                 transforming
@@ -1232,28 +1085,22 @@ function AboutDetail({
                 architecture
                 behind it.
               </p>
-
               <div className="haruni-profile-tags">
                 <span>
                   Fullstack
                 </span>
-
                 <span>
                   Frontend
                 </span>
-
                 <span>
                   Backend
                 </span>
-
                 <span>
                   Embedded
                 </span>
-
                 <span>
                   AI
                 </span>
-
                 <span>
                   Creative
                   Development
@@ -1261,57 +1108,47 @@ function AboutDetail({
               </div>
             </div>
           </div>
-
           <div className="haruni-profile-overview">
             <div className="haruni-subsection-heading">
               <h3>
                 Profile
               </h3>
-
               <span>
                 Overview
               </span>
             </div>
-
             <dl className="haruni-profile-table">
               <div>
                 <dt>
                   Name
                 </dt>
-
                 <dd>
                   Julie Anne
                   Cantillep
                 </dd>
               </div>
-
               <div>
                 <dt>
                   Role
                 </dt>
-
                 <dd>
                   Software
                   Developer
                 </dd>
               </div>
-
               <div>
                 <dt>
                   Location
                 </dt>
-
                 <dd>
                   Malmö,
                   Sweden
                 </dd>
               </div>
-
               <div>
                 <dt>
                   Focus
                 </dt>
-
                 <dd>
                   Fullstack
                   development,
@@ -1322,12 +1159,10 @@ function AboutDetail({
                   AI
                 </dd>
               </div>
-
               <div>
                 <dt>
                   Approach
                 </dt>
-
                 <dd>
                   Clear
                   structure,
@@ -1339,12 +1174,10 @@ function AboutDetail({
                   interaction
                 </dd>
               </div>
-
               <div>
                 <dt>
                   Email
                 </dt>
-
                 <dd>
                   <a href="mailto:kisamae1997@gmail.com">
                     kisamae1997@gmail.com
@@ -1354,7 +1187,6 @@ function AboutDetail({
             </dl>
           </div>
         </section>
-
         <section
           id="about-journey"
           className="haruni-about-section haruni-journey-section"
@@ -1363,24 +1195,20 @@ function AboutDetail({
             <h3>
               My Journey
             </h3>
-
             <span>
               Experience
-              &amp;
+              &
               Education
             </span>
           </div>
-
           <div className="haruni-journey-layout">
             <aside className="haruni-journey-aside">
               <p>
                 Developer
               </p>
-
               <strong>
                 JA
               </strong>
-
               <span>
                 Learning,
                 experimenting,
@@ -1389,7 +1217,6 @@ function AboutDetail({
                 a time.
               </span>
             </aside>
-
             <div className="haruni-timeline">
               {aboutExperienceItems.length >
               0 ? (
@@ -1404,7 +1231,6 @@ function AboutDetail({
                       )
                         ? experience.points
                         : [];
-
                     return (
                       <article
                         key={`${experience.company}-${experience.period}`}
@@ -1419,32 +1245,27 @@ function AboutDetail({
                             "0",
                           )}
                         </div>
-
                         <div className="haruni-timeline-content">
                           <time>
                             {
                               experience.period
                             }
                           </time>
-
                           <h4>
                             {
                               experience.role
                             }
                           </h4>
-
                           <strong>
                             {
                               experience.company
                             }
                           </strong>
-
                           <p>
                             {
                               experience.summary
                             }
                           </p>
-
                           {experiencePoints.length >
                             0 && (
                             <ul>
@@ -1479,7 +1300,6 @@ function AboutDetail({
                   updated.
                 </p>
               )}
-
               <article className="haruni-timeline-entry">
                 <div className="haruni-timeline-number">
                   {String(
@@ -1489,22 +1309,18 @@ function AboutDetail({
                     "0",
                   )}
                 </div>
-
                 <div className="haruni-timeline-content">
                   <time>
                     2026
                   </time>
-
                   <h4>
                     Fullstack
                     Developer
                   </h4>
-
                   <strong>
                     The Media
                     Institute
                   </strong>
-
                   <p>
                     Studied
                     frontend and
@@ -1518,7 +1334,6 @@ function AboutDetail({
                     application
                     architecture.
                   </p>
-
                   <ul>
                     <li>
                       Frontend,
@@ -1527,14 +1342,12 @@ function AboutDetail({
                       and system
                       development.
                     </li>
-
                     <li>
                       Projects
                       built with
                       agile
                       methods.
                     </li>
-
                     <li>
                       E-commerce
                       platforms
@@ -1546,7 +1359,6 @@ function AboutDetail({
                   </ul>
                 </div>
               </article>
-
               <article className="haruni-timeline-entry">
                 <div className="haruni-timeline-number">
                   {String(
@@ -1557,25 +1369,21 @@ function AboutDetail({
                     "0",
                   )}
                 </div>
-
                 <div className="haruni-timeline-content">
                   <time>
                     2024
                   </time>
-
                   <h4>
                     Embedded
                     Software
                     Development
                   </h4>
-
                   <strong>
                     Movant
                     University
                     of Applied
                     Science
                   </strong>
-
                   <p>
                     Worked with
                     embedded
@@ -1589,7 +1397,6 @@ function AboutDetail({
                     vehicle
                     development.
                   </p>
-
                   <ul>
                     <li>
                       Embedded
@@ -1600,7 +1407,6 @@ function AboutDetail({
                       real-time
                       systems.
                     </li>
-
                     <li>
                       Led a
                       group
@@ -1617,7 +1423,6 @@ function AboutDetail({
             </div>
           </div>
         </section>
-
         <section
           id="about-skills"
           className="haruni-about-section"
@@ -1626,12 +1431,10 @@ function AboutDetail({
             <h3>
               Skills
             </h3>
-
             <span>
               Toolbox
             </span>
           </div>
-
           <div className="haruni-skill-list">
             {aboutSkillGroups.length >
             0 ? (
@@ -1646,7 +1449,6 @@ function AboutDetail({
                     )
                       ? group.items
                       : [];
-
                   return (
                     <article
                       key={
@@ -1663,13 +1465,11 @@ function AboutDetail({
                           "0",
                         )}
                       </span>
-
                       <h4>
                         {
                           group.title
                         }
                       </h4>
-
                       <div>
                         {groupItems.map(
                           (
@@ -1701,22 +1501,19 @@ function AboutDetail({
             )}
           </div>
         </section>
-
         <section
           id="about-contact"
           className="haruni-about-section haruni-contact-section"
         >
           <div className="haruni-subsection-heading">
             <h3>
-              Let&apos;s
+              Let's
               Connect
             </h3>
-
             <span>
               Contact
             </span>
           </div>
-
           <p className="haruni-contact-intro">
             Have a project,
             opportunity, or
@@ -1725,18 +1522,15 @@ function AboutDetail({
             through any of the
             links below.
           </p>
-
           <div className="haruni-contact-links">
             <a href="mailto:kisamae1997@gmail.com">
               <span>
                 Email
               </span>
-
               <strong>
                 kisamae1997@gmail.com
               </strong>
             </a>
-
             <a
               href="https://www.linkedin.com/in/julie-anne-cantillep-4ba4ab250/"
               target="_blank"
@@ -1746,12 +1540,10 @@ function AboutDetail({
                 Professional
                 profile
               </span>
-
               <strong>
                 LinkedIn ↗
               </strong>
             </a>
-
             <a
               href="https://github.com/Julieanna97"
               target="_blank"
@@ -1761,7 +1553,6 @@ function AboutDetail({
                 Development
                 work
               </span>
-
               <strong>
                 GitHub ↗
               </strong>
@@ -1772,7 +1563,6 @@ function AboutDetail({
     </div>
   );
 }
-
 function CreditsDetail({
   titleId,
 }: {
@@ -1787,7 +1577,6 @@ function CreditsDetail({
       CREDIT_NAV_ITEMS,
       "credits-overview",
     );
-
   return (
     <div
       ref={layoutRef}
@@ -1804,7 +1593,6 @@ function CreditsDetail({
             const isActive =
               activeSection ===
               item.id;
-
             return (
               <a
                 key={item.id}
@@ -1823,7 +1611,6 @@ function CreditsDetail({
                   event,
                 ) => {
                   event.preventDefault();
-
                   scrollToSection(
                     item.id,
                   );
@@ -1833,14 +1620,12 @@ function CreditsDetail({
                   className="credits-editorial-rail-dot"
                   aria-hidden="true"
                 />
-
                 {item.label}
               </a>
             );
           },
         )}
       </nav>
-
       <div className="credits-editorial-content">
         <section
           id="credits-overview"
@@ -1850,24 +1635,20 @@ function CreditsDetail({
             <p>
               Credits
             </p>
-
             <h2 id={titleId}>
               Built with
               love
             </h2>
-
             <span>
               Portfolio
               production
             </span>
           </header>
-
           <div className="credits-editorial-intro">
             <p className="credits-editorial-eyebrow">
               Interactive
               portfolio
             </p>
-
             <h3>
               An interactive
               world shaped by
@@ -1876,7 +1657,6 @@ function CreditsDetail({
               and thoughtful
               details.
             </h3>
-
             <p>
               I designed and
               developed this
@@ -1895,7 +1675,6 @@ function CreditsDetail({
               responsive web
               development.
             </p>
-
             <p>
               Some creative
               assets were
@@ -1915,7 +1694,6 @@ function CreditsDetail({
               me.
             </p>
           </div>
-
           <div className="credits-editorial-jump-grid">
             <button
               type="button"
@@ -1928,17 +1706,14 @@ function CreditsDetail({
               <span className="credits-editorial-jump-symbol">
                 3D
               </span>
-
               <strong>
-                World &amp;
+                World &
                 sound
               </strong>
-
               <small>
                 Scene, model
                 and music
               </small>
-
               <span
                 className="credits-editorial-jump-arrow"
                 aria-hidden="true"
@@ -1946,7 +1721,6 @@ function CreditsDetail({
                 ↓
               </span>
             </button>
-
             <button
               type="button"
               onClick={() => {
@@ -1958,18 +1732,15 @@ function CreditsDetail({
               <span className="credits-editorial-jump-symbol">
                 UI
               </span>
-
               <strong>
                 Web
                 production
               </strong>
-
               <small>
                 Technology
                 and
                 interaction
               </small>
-
               <span
                 className="credits-editorial-jump-arrow"
                 aria-hidden="true"
@@ -1979,7 +1750,6 @@ function CreditsDetail({
             </button>
           </div>
         </section>
-
         <section
           id="credits-attribution"
           className="credits-editorial-section"
@@ -1989,18 +1759,15 @@ function CreditsDetail({
               Creative
               attribution
             </p>
-
             <h3>
               Scene, model
-              &amp; music
+              & music
             </h3>
-
             <span>
               Original
               creators
             </span>
           </div>
-
           <div className="credits-attribution-grid">
             <article>
               <div className="credits-attribution-orb">
@@ -2008,24 +1775,20 @@ function CreditsDetail({
                   01
                 </span>
               </div>
-
               <p>
                 Original 3D
                 environment
               </p>
-
               <h4>
                 A Mysterious
                 Adventure —
                 3D Editor
                 Challenge
               </h4>
-
               <strong>
                 Scene by
                 Diosmel
               </strong>
-
               <span>
                 Used under
                 the Creative
@@ -2034,28 +1797,23 @@ function CreditsDetail({
                 4.0 license.
               </span>
             </article>
-
             <article>
               <div className="credits-attribution-orb">
                 <span>
                   02
                 </span>
               </div>
-
               <p>
                 Additional
                 3D model
               </p>
-
               <h4>
                 Sakura Tree
               </h4>
-
               <strong>
                 Model by
                 dimal965
               </strong>
-
               <span>
                 Sakura Tree
                 model
@@ -2067,28 +1825,23 @@ function CreditsDetail({
                 scene.
               </span>
             </article>
-
             <article>
               <div className="credits-attribution-orb">
                 <span>
                   03
                 </span>
               </div>
-
               <p>
                 Background
                 music
               </p>
-
               <h4>
                 Japanese
                 Jazz 2
               </h4>
-
               <strong>
                 PuyoPuyoMegaFan1234
               </strong>
-
               <span>
                 Used as the
                 ambient music
@@ -2100,7 +1853,6 @@ function CreditsDetail({
             </article>
           </div>
         </section>
-
         <section
           id="credits-production"
           className="credits-editorial-section"
@@ -2110,19 +1862,16 @@ function CreditsDetail({
               Portfolio
               production
             </p>
-
             <h3>
-              Tools &amp;
+              Tools &
               technology
             </h3>
-
             <span>
               How the
               experience
               was built
             </span>
           </div>
-
           {creditGroups.length >
             0 && (
             <div
@@ -2146,7 +1895,6 @@ function CreditsDetail({
               )}
             </div>
           )}
-
           <div className="credits-production-grid">
             {creditGroups.length >
             0 ? (
@@ -2161,7 +1909,6 @@ function CreditsDetail({
                     )
                       ? group.items
                       : [];
-
                   return (
                     <article
                       key={
@@ -2178,14 +1925,12 @@ function CreditsDetail({
                           "0",
                         )}
                       </span>
-
                       <div>
                         <h4>
                           {
                             group.title
                           }
                         </h4>
-
                         <ul>
                           {groupItems.map(
                             (
@@ -2219,7 +1964,6 @@ function CreditsDetail({
             )}
           </div>
         </section>
-
         <section
           id="credits-direction"
           className="credits-editorial-section credits-direction-section"
@@ -2229,29 +1973,24 @@ function CreditsDetail({
               Creative
               direction
             </p>
-
             <h3>
               What shaped
               the portfolio
             </h3>
-
             <span>
               Atmosphere
               and
               interaction
             </span>
           </div>
-
           <div className="credits-direction-grid">
             <article>
               <span>
                 01
               </span>
-
               <h4>
                 Cozy spaces
               </h4>
-
               <p>
                 I wanted the
                 portfolio to
@@ -2267,17 +2006,14 @@ function CreditsDetail({
                 through.
               </p>
             </article>
-
             <article>
               <span>
                 02
               </span>
-
               <h4>
                 Moody color
                 palette
               </h4>
-
               <p>
                 Dark city
                 tones, warm
@@ -2291,17 +2027,14 @@ function CreditsDetail({
                 interface.
               </p>
             </article>
-
             <article>
               <span>
                 03
               </span>
-
               <h4>
                 Playful
                 interactions
               </h4>
-
               <p>
                 Camera
                 movement,
@@ -2318,7 +2051,6 @@ function CreditsDetail({
               </p>
             </article>
           </div>
-
           <div className="credits-editorial-closing">
             <p>
               Designed,
@@ -2326,12 +2058,10 @@ function CreditsDetail({
               and assembled
               by
             </p>
-
             <strong>
               Julie Anne
               Cantillep
             </strong>
-
             <span>
               Malmö,
               Sweden
